@@ -24,9 +24,6 @@ RUN npm run build
 # ==========================================
 FROM nginx:alpine
 
-# Remove default nginx site
-RUN rm -rf /etc/nginx/conf.d/*
-
 # Copy built application assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
