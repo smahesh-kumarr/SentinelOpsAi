@@ -30,13 +30,17 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 
+# Resolve project root directory (parent of scripts/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 for svc in "${SERVICES[@]}"; do
   IMAGE_TAG="$DOCKER_USER/sentinelops-$svc:$VERSION"
   LATEST_TAG="$DOCKER_USER/sentinelops-$svc:latest"
   
   echo ""
   echo ">>> Building $svc ($IMAGE_TAG)..."
-  docker build -t "$IMAGE_TAG" -t "$LATEST_TAG" "./$svc"
+  docker build -t "$IMAGE_TAG" -t "$LATEST_TAG" "$ROOT_DIR/$svc"
   
   echo "✓ Successfully built $IMAGE_TAG"
 done
