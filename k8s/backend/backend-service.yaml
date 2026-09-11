@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: sentinelopsai
+  labels:
+    app: backend
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: "3000" # Explicitly named port — required for Prometheus ServiceMonitor endpoint matching
+      port: 3000
+      targetPort: 3000

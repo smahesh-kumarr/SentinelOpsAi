@@ -181,58 +181,40 @@ SentinelOpsAi/
 
 ---
 
-### Phase 3: Kubernetes Deployment
+### Phase 3: Kubernetes Deployment — MANIFESTS READY 📦
 
 #### 3.1 Cluster & Namespace Setup
-- [ ] Initialize single-node cluster using `kind` (`kind create cluster --name sentinelops`) or `k3s`.
-- [ ] Create dedicated namespace manifest `k8s/00-namespace.yaml`:
-  ```yaml
-  apiVersion: v1
-  kind: Namespace
-  metadata:
-    name: sentinelopsai
-  ```
+- [x] Create dedicated namespace manifest `k8s/00-namespace.yaml` for `sentinelopsai`.
 
 #### 3.2 Database Deployment (MongoDB)
-- [ ] Create MongoDB Deployment manifest (`k8s/mongodb/mongodb-deployment.yaml`) with persistent/ephemeral storage.
-- [ ] Create MongoDB Service manifest (`k8s/mongodb/mongodb-service.yaml`) exposing port `27017` on name `mongodb`.
+- [x] Create MongoDB Deployment manifest (`k8s/mongodb/mongodb-deployment.yaml`) with TCP socket health probes and volume mount.
+- [x] Create MongoDB Service manifest (`k8s/mongodb/mongodb-service.yaml`) exposing port `27017` on name `mongodb`.
 
 #### 3.3 Configuration & Secrets
-- [ ] Create non-sensitive ConfigMap `k8s/backend/backend-configmap.yaml`:
-  - `PORT: "3000"`
-  - `NODE_ENV: "production"`
-  - `LOG_LEVEL: "info"`
-  - `ENABLE_TEST_ROUTES: "true"`
-  - `MONGODB_DB_NAME: "sentinelops"`
-- [ ] Define CLI command template for sensitive Secret creation (never hardcode real passwords in YAML):
-  ```bash
-  kubectl create secret generic backend-secrets -n sentinelopsai \
-    --from-literal=MONGODB_URI="mongodb://mongodb.sentinelopsai.svc.cluster.local:27017/sentinelops" \
-    --from-literal=JWT_SECRET="<secret-key>"
-  ```
+- [x] Create non-sensitive ConfigMap `k8s/backend/backend-configmap.yaml`:
+  - `PORT: "3000"`, `NODE_ENV: "production"`, `LOG_LEVEL: "info"`, `ENABLE_TEST_ROUTES: "true"`, `MONGODB_DB_NAME: "sentinelops"`.
+- [x] Idempotent Secret creation script logic in `scripts/deploy-k8s.sh` and `scripts/deploy-k8s.ps1` for `backend-secrets` (`MONGODB_URI`, `JWT_SECRET`).
 
 #### 3.4 Backend Deployment & Service
-- [ ] Create Backend Deployment `k8s/backend/backend-deployment.yaml`:
+- [x] Create Backend Deployment `k8s/backend/backend-deployment.yaml`:
   - `replicas: 2`.
-  - Image: `<dockerhub-user>/sentinelops-backend:v1`.
-  - Resources:
-    - Requests: `memory: "128Mi"`, `cpu: "100m"`.
-    - Limits: `memory: "200Mi"`, `cpu: "300m"` (**CRITICAL: Intentionally constrained for OOM demos**).
-  - Probes:
-    - Readiness probe: `httpGet: { path: /health, port: 3000 }`, `initialDelaySeconds: 5`.
-    - Liveness probe: `httpGet: { path: /health, port: 3000 }`, `initialDelaySeconds: 10`.
+  - Image: `maheshkumars772/sentinelops-backend:v1`.
+  - Resources: `requests: { memory: "128Mi", cpu: "100m" }`, `limits: { memory: "200Mi", cpu: "300m" }` (**CRITICAL: Intentionally constrained for OOM demos**).
+  - Probes: Readiness (`/health`, 3000), Liveness (`/health`, 3000).
   - Environment injection: `envFrom` referencing `backend-config` and `backend-secrets`.
-- [ ] Create Backend Service `k8s/backend/backend-service.yaml`:
+- [x] Create Backend Service `k8s/backend/backend-service.yaml`:
   - Type: `ClusterIP`.
-  - Port definition: **Must include explicit name** `name: "3000"` or `name: "http"`, `port: 3000`, `targetPort: 3000`.
+  - Explicit named port: `name: "3000"`, `port: 3000`, `targetPort: 3000` (required for Prometheus `ServiceMonitor`).
 
-#### 3.5 Frontend Deployment & Service
-- [ ] Create Frontend Deployment `k8s/frontend/frontend-deployment.yaml`:
-  - `replicas: 1`.
-  - Image: `<dockerhub-user>/sentinelops-frontend:v1`.
-  - Readiness/Liveness probe on port `80` (`path: /`).
-- [ ] Create Frontend Service `k8s/frontend/frontend-service.yaml`:
-  - Type: `NodePort` or `ClusterIP` with port-forwarding access on port `80`.
+#### 3.5 Frontend & Collector Deployments & Services
+- [x] Create Frontend Deployment `k8s/frontend/frontend-deployment.yaml` (`maheshkumars772/sentinelops-frontend:v1`).
+- [x] Create Frontend Service `k8s/frontend/frontend-service.yaml` (NodePort `30080`, port `80`).
+- [x] Create Collector Deployment `k8s/collector/collector-deployment.yaml` (`maheshkumars772/sentinelops-collector-service:v1`).
+- [x] Create Collector Service `k8s/collector/collector-service.yaml` (ClusterIP, port `8000`).
+
+#### 3.6 Automated Rollout Automation
+- [x] Create Linux rollout script [`scripts/deploy-k8s.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-k8s.sh).
+- [x] Create Windows PowerShell rollout script [`scripts/deploy-k8s.ps1`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-k8s.ps1).
 
 #### Phase 3 Verification Checklist:
 - [ ] `kubectl apply -f k8s/00-namespace.yaml`.
