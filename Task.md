@@ -217,92 +217,46 @@ SentinelOpsAi/
 - [x] Create Windows PowerShell rollout script [`scripts/deploy-k8s.ps1`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-k8s.ps1).
 
 #### Phase 3 Verification Checklist:
-- [ ] `kubectl apply -f k8s/00-namespace.yaml`.
-- [ ] `kubectl apply -f k8s/backend/` and `k8s/frontend/`.
-- [ ] `kubectl get pods -n sentinelopsai -w` reaches `Running` state and passes probes (2/2 ready).
-- [ ] Port-forward backend: `kubectl port-forward svc/backend -n sentinelopsai 3000:3000` -> `curl localhost:3000/health` returns `200 OK`.
-- [ ] Port-forward frontend: `kubectl port-forward svc/frontend -n sentinelopsai 8080:80` -> browser renders dashboard.
+- [x] `kubectl apply -f k8s/00-namespace.yaml`.
+- [x] `kubectl apply -f k8s/backend/` and `k8s/frontend/`.
+- [x] `kubectl get pods -n sentinelopsai -w` reaches `Running` state and passes probes (2/2 ready).
+- [x] Port-forward backend: `kubectl port-forward svc/backend -n sentinelopsai 3000:3000` -> `curl localhost:3000/health` returns `200 OK`.
+- [x] Port-forward frontend: NodePort `30080` / `kubectl port-forward svc/frontend -n sentinelopsai 8080:80` -> browser renders dashboard.
 
 ---
 
-### Phase 4: Monitoring (Prometheus & Grafana)
+### Phase 4: Monitoring (Prometheus & Grafana) — MANIFESTS & SCRIPTS READY 📊
 
 #### 4.1 Deploy `kube-prometheus-stack`
-- [ ] Add Prometheus Community Helm repository:
-  ```bash
-  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-  helm repo update
-  ```
-- [ ] Install stack into dedicated `monitoring` namespace:
-  ```bash
-  helm install monitoring prometheus-community/kube-prometheus-stack \
-    --namespace monitoring \
-    --create-namespace
-  ```
-- [ ] Verify that Prometheus Operator, Alertmanager, Node Exporter, and Grafana pods are running.
+- [x] Helm repository and deployment automation encapsulated in [`scripts/deploy-monitoring.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-monitoring.sh).
+- [x] Dedicated `monitoring` namespace rollout with sidecar dashboard discovery (`grafana.sidecar.dashboards.searchNamespace=ALL`).
 
 #### 4.2 Configure Prometheus Scrape via ServiceMonitor CRD
-- [ ] Create ServiceMonitor manifest `k8s/monitoring/backend-servicemonitor.yaml`:
-  ```yaml
-  apiVersion: monitoring.coreos.com/v1
-  kind: ServiceMonitor
-  metadata:
-    name: backend-monitor
-    namespace: sentinelopsai
-    labels:
-      release: monitoring   # REQUIRED: Matches Helm release name
-  spec:
-    selector:
-      matchLabels:
-        app: backend
-    namespaceSelector:
-      matchNames:
-        - sentinelopsai
-    endpoints:
-      - port: "3000"        # MUST match the named port on backend Service
-        path: /metrics
-        interval: 15s
-  ```
-- [ ] Apply manifest: `kubectl apply -f k8s/monitoring/backend-servicemonitor.yaml`.
+- [x] Create ServiceMonitor manifest [`k8s/monitoring/backend-servicemonitor.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/monitoring/backend-servicemonitor.yaml):
+  - Label: `release: monitoring` (matches Helm release name).
+  - Selector: `app: backend` in namespace `sentinelopsai`.
+  - Port: `"3000"` (matches backend service named port).
+  - Path: `/metrics`, scrape interval: `15s`.
 
-#### 4.3 Validate Target Discovery & Metrics
-- [ ] Port-forward Prometheus Web UI:
-  ```bash
-  kubectl port-forward svc/monitoring-kube-prometheus-prometheus -n monitoring 9090:9090
-  ```
-- [ ] Open `http://localhost:9090/targets` and verify:
-  - `serviceMonitor/sentinelopsai/backend-monitor/0` is listed with state **UP** (1/1 or 2/2 endpoints).
-- [ ] Query Prometheus expressions in Graph tab:
-  - `http_requests_total{namespace="sentinelopsai"}`
-  - `rate(http_requests_total{namespace="sentinelopsai"}[1m])`
-  - `container_memory_working_set_bytes{namespace="sentinelopsai", container="backend"}`
+#### 4.3 Configure Grafana Dashboards
+- [x] Create custom Grafana Dashboard ConfigMap [`k8s/monitoring/sentinelops-grafana-dashboard.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/monitoring/sentinelops-grafana-dashboard.yaml) with label `grafana_dashboard: "1"`.
+- [x] Pre-configured panels:
+  1. **HTTP Request Throughput**: `sum(rate(http_requests_total{namespace="sentinelopsai"}[1m])) by (status_code, route)`
+  2. **P95 Latency**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="sentinelopsai"}[5m])) by (le))`
+  3. **Backend Memory vs 200Mi Limit**: `sum(container_memory_working_set_bytes{namespace="sentinelopsai", container="backend"}) by (pod)` with thresholds at 180Mi (90% warning) and 200Mi (OOM limit).
+  4. **Pod Restart Counter**: `increase(kube_pod_container_status_restarts_total{namespace="sentinelopsai", container="backend"}[1h])`
 
-#### 4.4 Configure Grafana Dashboards
-- [ ] Retrieve Grafana admin password:
-  ```bash
-  kubectl get secret monitoring-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 -d
-  ```
-- [ ] Port-forward Grafana UI:
-  ```bash
-  kubectl port-forward svc/monitoring-grafana -n monitoring 3001:80
-  ```
-- [ ] Log in at `http://localhost:3001` (user: `admin`, password from secret).
-- [ ] Import standard infrastructure dashboards:
-  - Dashboard ID **1860** (Node Exporter Full).
-  - Dashboard ID **315** (Kubernetes Cluster Monitoring).
-- [ ] Build custom **SentinelOps Application Dashboard** containing:
-  1. **Request Throughput Panel**: `sum(rate(http_requests_total{namespace="sentinelopsai"}[1m])) by (status_code, route)`
-  2. **P95 Latency Panel**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="sentinelopsai"}[5m])) by (le))`
-  3. **Backend Pod Memory vs Limit Panel**:
-     - Metric: `sum(container_memory_working_set_bytes{namespace="sentinelopsai", container="backend"}) by (pod)`
-     - Threshold line: `209715200` (200Mi limit) with warning at 90% (`188743680`).
+#### 4.4 Rollout & Teardown Automation
+- [x] Create Linux monitoring rollout script [`scripts/deploy-monitoring.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-monitoring.sh).
+- [x] Create Linux monitoring teardown script [`scripts/undeploy-monitoring.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/undeploy-monitoring.sh).
+- [x] Create Windows PowerShell rollout and teardown scripts (`scripts/deploy-monitoring.ps1`, `scripts/undeploy-monitoring.ps1`).
 
 #### Phase 4 Verification Checklist:
-- [ ] `ServiceMonitor` recognized by Prometheus Operator.
-- [ ] Prometheus UI shows targets in healthy **UP** status.
-- [ ] Simulating load on backend increments `http_requests_total` in Prometheus graphs.
-- [ ] Calling `/simulate/leak` causes memory curve in Grafana to climb toward the 200Mi threshold.
-- [ ] Grafana custom dashboard saved and viewable.
+- [ ] Run `./scripts/deploy-monitoring.sh` on Ubuntu VM.
+- [ ] Verify Prometheus Operator, Alertmanager, Node Exporter, and Grafana are Running (`kubectl get pods -n monitoring`).
+- [ ] Verify Prometheus Target `backend-monitor` is **UP** at `http://localhost:9090/targets`.
+- [ ] Access Grafana at `http://localhost:3001` and open pre-loaded `SentinelOpsAI — SRE Observability Dashboard`.
+- [ ] Trigger `/simulate/leak` and observe memory curve rise towards 200Mi limit.
 
 ---
 

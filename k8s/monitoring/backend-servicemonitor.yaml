@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-monitor
+  namespace: sentinelopsai
+  labels:
+    release: monitoring # REQUIRED: Must match the Helm release name of kube-prometheus-stack
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  namespaceSelector:
+    matchNames:
+      - sentinelopsai
+  endpoints:
+    - port: "3000" # Must match the explicit named port on backend Service
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
