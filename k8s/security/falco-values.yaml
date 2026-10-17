@@ -1,0 +1,26 @@
+# ==============================================================================
+# SentinelOpsAI — Falco & Falcosidekick Helm Values
+# ==============================================================================
+
+# Driver configuration: modern_ebpf is essential for VirtualBox VMs / kind clusters
+# to avoid requiring kernel headers and compiling custom kernel modules.
+driver:
+  kind: modern_ebpf
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  json_include_tags_property: true
+  log_stderr: true
+  log_syslog: false
+  priority: notice
+
+# Falcosidekick forwards security events to the Collector Service
+falcosidekick:
+  enabled: true
+  webui:
+    enabled: true # Web UI exposed on port 2802
+  config:
+    webhook:
+      address: "http://collector-service.sentinelopsai.svc.cluster.local:8000/events/falco"
+      minimumpriority: "notice"

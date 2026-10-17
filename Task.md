@@ -278,11 +278,43 @@ SentinelOpsAi/
 - [x] Create Windows PowerShell deployment and teardown scripts (`scripts/deploy-logging.ps1`, `scripts/undeploy-logging.ps1`).
 
 #### Phase 5 Verification Checklist:
-- [ ] Run `./scripts/deploy-logging.sh` on Ubuntu VM.
-- [ ] Verify Loki StatefulSet/Deployment and Promtail DaemonSet are `Running` in `monitoring` namespace.
-- [ ] Open Grafana at `http://localhost:3001` $\rightarrow$ Explore $\rightarrow$ select `Loki`.
-- [ ] Run query `{app="backend"}` and verify backend logs stream live.
-- [ ] Run query `{app="backend"} | json | level="error"` and verify JSON pipeline filtering.
+- [x] Run `./scripts/deploy-logging.sh` on Ubuntu VM.
+- [x] Verify Loki StatefulSet/Deployment and Promtail DaemonSet are `Running` in `monitoring` namespace.
+- [x] Open Grafana at `http://localhost:3001` $\rightarrow$ Explore $\rightarrow$ select `Loki`.
+- [x] Run query `{app="backend"}` and verify backend logs stream live.
+- [x] Run query `{app="backend"} | json | level="error"` and verify JSON pipeline filtering.
+
+---
+
+### Phase 6: Runtime Security (Falco & Trivy) — MANIFESTS & SCRIPTS READY 🛡️
+
+#### 6.1 Deploy Falco & Falcosidekick via Helm
+- [x] Custom Helm values [`k8s/security/falco-values.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/security/falco-values.yaml) with `driver.kind=modern_ebpf` and Falcosidekick WebUI.
+- [x] Webhook alert forwarding configured to `http://collector-service.sentinelopsai.svc.cluster.local:8000/events/falco`.
+- [x] Added `@app.post("/events/falco")` ingestion webhook endpoint to [`collector-service/main.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/main.py).
+- [x] Rollout automation script [`scripts/deploy-security.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-security.sh) deploying into `falco` namespace.
+
+#### 6.2 Threat Simulation & Verification
+- [x] Create security event simulation script [`scripts/test-security.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/test-security.sh):
+  - Triggers unauthorized `cat /etc/shadow` in backend pod.
+  - Verifies Falco eBPF detection log.
+  - Verifies Falcosidekick HTTP webhook delivery.
+  - Verifies Collector Service alert reception.
+
+#### 6.3 Vulnerability Assessment (Trivy)
+- [x] Create automated image scanner script [`scripts/scan-images.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/scan-images.sh) scanning backend, frontend, and collector container images with JSON reports saved to `reports/`.
+
+#### 6.4 Rollout & Teardown Automation
+- [x] Create Linux security deployment script [`scripts/deploy-security.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-security.sh).
+- [x] Create Linux security teardown script [`scripts/undeploy-security.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/undeploy-security.sh).
+- [x] Create Windows PowerShell deployment and teardown scripts (`scripts/deploy-security.ps1`, `scripts/undeploy-security.ps1`).
+
+#### Phase 6 Verification Checklist:
+- [ ] Run `./scripts/deploy-security.sh` on Ubuntu VM.
+- [ ] Verify Falco DaemonSet and Falcosidekick are `Running` in `falco` namespace (`kubectl get pods -n falco`).
+- [ ] Access Falcosidekick WebUI at `http://localhost:2802` via port-forward.
+- [ ] Run `./scripts/test-security.sh` and verify alert propagation through Falco $\rightarrow$ Falcosidekick $\rightarrow$ Collector.
+- [ ] Run `./scripts/scan-images.sh` and check generated reports in `reports/`.
 
 ---
 
