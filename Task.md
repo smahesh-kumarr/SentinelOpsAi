@@ -252,11 +252,37 @@ SentinelOpsAi/
 - [x] Create Windows PowerShell rollout and teardown scripts (`scripts/deploy-monitoring.ps1`, `scripts/undeploy-monitoring.ps1`).
 
 #### Phase 4 Verification Checklist:
-- [ ] Run `./scripts/deploy-monitoring.sh` on Ubuntu VM.
-- [ ] Verify Prometheus Operator, Alertmanager, Node Exporter, and Grafana are Running (`kubectl get pods -n monitoring`).
-- [ ] Verify Prometheus Target `backend-monitor` is **UP** at `http://localhost:9090/targets`.
-- [ ] Access Grafana at `http://localhost:3001` and open pre-loaded `SentinelOpsAI — SRE Observability Dashboard`.
-- [ ] Trigger `/simulate/leak` and observe memory curve rise towards 200Mi limit.
+- [x] Run `./scripts/deploy-monitoring.sh` on Ubuntu VM.
+- [x] Verify Prometheus Operator, Alertmanager, Node Exporter, and Grafana are Running (`kubectl get pods -n monitoring`).
+- [x] Verify Prometheus Target `backend-monitor` is **UP** at `http://localhost:9090/targets`.
+- [x] Access Grafana at `http://localhost:3001` and open pre-loaded `SentinelOpsAI — SRE Observability Dashboard`.
+- [x] Trigger `/simulate/leak` and observe memory curve rise towards 200Mi limit.
+
+---
+
+### Phase 5: Centralized Logging (Loki + Promtail) — MANIFESTS & SCRIPTS READY 🪵
+
+#### 5.1 Deploy `loki-stack` via Helm
+- [x] Custom Helm values [`k8s/logging/promtail-values.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/logging/promtail-values.yaml) with `grafana.enabled: false`, `promtail.enabled: true`, and JSON pipeline stages.
+- [x] Rollout automation script [`scripts/deploy-logging.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-logging.sh) deploying into `monitoring` namespace.
+
+#### 5.2 Configure Grafana Loki DataSource
+- [x] Create DataSource ConfigMap [`k8s/logging/grafana-loki-datasource.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/logging/grafana-loki-datasource.yaml) labeled `grafana_datasource: "1"` pointing to `http://loki.monitoring.svc.cluster.local:3100`.
+
+#### 5.3 Configure Promtail Structured JSON Pipeline
+- [x] Promtail pipeline configured to extract `level`, `service`, `msg` and promote `level` and `service` into indexed Loki labels.
+
+#### 5.4 Rollout & Teardown Automation
+- [x] Create Linux logging deployment script [`scripts/deploy-logging.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/deploy-logging.sh).
+- [x] Create Linux logging teardown script [`scripts/undeploy-logging.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/undeploy-logging.sh).
+- [x] Create Windows PowerShell deployment and teardown scripts (`scripts/deploy-logging.ps1`, `scripts/undeploy-logging.ps1`).
+
+#### Phase 5 Verification Checklist:
+- [ ] Run `./scripts/deploy-logging.sh` on Ubuntu VM.
+- [ ] Verify Loki StatefulSet/Deployment and Promtail DaemonSet are `Running` in `monitoring` namespace.
+- [ ] Open Grafana at `http://localhost:3001` $\rightarrow$ Explore $\rightarrow$ select `Loki`.
+- [ ] Run query `{app="backend"}` and verify backend logs stream live.
+- [ ] Run query `{app="backend"} | json | level="error"` and verify JSON pipeline filtering.
 
 ---
 

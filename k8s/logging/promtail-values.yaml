@@ -1,0 +1,37 @@
+# ==============================================================================
+# SentinelOpsAI — Loki-Stack Helm Values (Loki + Promtail)
+# ==============================================================================
+
+loki:
+  enabled: true
+  isDefault: false
+  persistence:
+    enabled: false # Ephemeral storage suitable for single-node / local VM cluster
+
+promtail:
+  enabled: true
+  config:
+    snippets:
+      pipelineStages:
+        # Parse structured JSON logs emitted by SentinelOps backend & microservices
+        - json:
+            expressions:
+              level: level
+              service: service
+              msg: msg
+        - labels:
+            level:
+            service:
+
+# Disable duplicate services (already provided by kube-prometheus-stack)
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+filebeat:
+  enabled: false
+
+logstash:
+  enabled: false
