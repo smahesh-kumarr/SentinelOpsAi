@@ -310,11 +310,40 @@ SentinelOpsAi/
 - [x] Create Windows PowerShell deployment and teardown scripts (`scripts/deploy-security.ps1`, `scripts/undeploy-security.ps1`).
 
 #### Phase 6 Verification Checklist:
-- [ ] Run `./scripts/deploy-security.sh` on Ubuntu VM.
-- [ ] Verify Falco DaemonSet and Falcosidekick are `Running` in `falco` namespace (`kubectl get pods -n falco`).
-- [ ] Access Falcosidekick WebUI at `http://localhost:2802` via port-forward.
-- [ ] Run `./scripts/test-security.sh` and verify alert propagation through Falco $\rightarrow$ Falcosidekick $\rightarrow$ Collector.
-- [ ] Run `./scripts/scan-images.sh` and check generated reports in `reports/`.
+- [x] Run `./scripts/deploy-security.sh` on Ubuntu VM.
+- [x] Verify Falco DaemonSet and Falcosidekick are `Running` in `falco` namespace (`kubectl get pods -n falco`).
+- [x] Access Falcosidekick WebUI at `http://localhost:2802` via port-forward.
+- [x] Run `./scripts/test-security.sh` and verify alert propagation through Falco $\rightarrow$ Falcosidekick $\rightarrow$ Collector.
+- [x] Run `./scripts/scan-images.sh` and check generated reports in `reports/`.
+
+---
+
+### Phase 7: Telemetry Collector Implementation — CODE & RBAC READY 📡
+
+#### 7.1 Multi-Source Ingestion Engines & Event Persistence
+- [x] Implemented MongoDB event store with in-memory fallback in [`collector-service/db.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/db.py).
+- [x] **Prometheus Poller** ([`collector-service/pollers/prometheus_poller.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/pollers/prometheus_poller.py)):
+  - Polls CPU and Memory metrics every 30s.
+  - Generates warning/critical events when memory exceeds 90% of the 200Mi limit (`180Mi`).
+- [x] **Loki Poller** ([`collector-service/pollers/loki_poller.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/pollers/loki_poller.py)):
+  - Polls LogQL for error logs in `sentinelopsai` over the past 60s.
+  - Normalizes and stores application error logs.
+- [x] **Kubernetes Poller** ([`collector-service/pollers/k8s_poller.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/pollers/k8s_poller.py)):
+  - Detects pod restart count spikes and `CrashLoopBackOff` or `OOMKilled` states via the in-cluster K8s API.
+- [x] **Falco Webhook** ([`collector-service/main.py`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/collector-service/main.py)):
+  - Ingests real-time security alerts forwarded by Falcosidekick at `/events/falco`.
+
+#### 7.2 In-Cluster RBAC & Deployment Manifests
+- [x] Created [`k8s/collector/collector-rbac.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/collector/collector-rbac.yaml) with `collector-sa` and read-only `Role` for pods and events.
+- [x] Updated [`k8s/collector/collector-deployment.yaml`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/k8s/collector/collector-deployment.yaml) with `serviceAccountName: collector-sa` and database / poller environment variables.
+
+#### 7.3 Verification Automation
+- [x] Created collector verification script [`scripts/test-collector.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/test-collector.sh).
+
+#### Phase 7 Verification Checklist:
+- [ ] Build & push updated collector image: `./scripts/build.sh maheshkumars772 v1 --push`.
+- [ ] Apply updated deployment & RBAC: `kubectl apply -f k8s/collector/`.
+- [ ] Run `./scripts/test-collector.sh` and verify MongoDB connection and live event ingestion.
 
 ---
 

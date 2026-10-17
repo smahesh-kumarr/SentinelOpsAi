@@ -16,6 +16,7 @@ spec:
       labels:
         app: collector-service
     spec:
+      serviceAccountName: collector-sa # Grants in-cluster read-only access to K8s API
       containers:
         - name: collector-service
           image: maheshkumars772/sentinelops-collector-service:v1
@@ -23,13 +24,26 @@ spec:
           ports:
             - containerPort: 8000
               name: http
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            - name: LOKI_URL
+              value: "http://loki.monitoring.svc.cluster.local:3100"
+            - name: MONGODB_URI
+              value: "mongodb://mongodb.sentinelopsai.svc.cluster.local:27017/sentinelops"
+            - name: MONGODB_DB_NAME
+              value: "sentinelops"
+            - name: K8S_NAMESPACE
+              value: "sentinelopsai"
+            - name: POLL_INTERVAL_SECONDS
+              value: "30"
           resources:
             requests:
               cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
               memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
           readinessProbe:
             httpGet:
               path: /health
