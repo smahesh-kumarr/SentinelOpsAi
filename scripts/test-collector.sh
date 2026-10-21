@@ -27,19 +27,19 @@ echo ""
 
 # 1. Health Probe Check
 echo ">>> 1. Checking Collector Health (/health)..."
-HEALTH_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())" 2>/dev/null || echo '{"status":"error","message":"Failed to query /health"}')
+HEALTH_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())")
 echo "$HEALTH_JSON"
 
 # 2. Trigger On-Demand Polling
 echo ""
 echo ">>> 2. Triggering immediate manual polling (/poll/now)..."
-POLL_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; req = urllib.request.Request('http://localhost:8000/poll/now', method='POST'); print(urllib.request.urlopen(req).read().decode())" 2>/dev/null || echo '{"status":"notice","message":"/poll/now will be available once collector image is rebuilt and restarted"}')
+POLL_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; req = urllib.request.Request('http://localhost:8000/poll/now', method='POST'); print(urllib.request.urlopen(req).read().decode())")
 echo "$POLL_JSON"
 
 # 3. Retrieve Ingested Events
 echo ""
 echo ">>> 3. Fetching recently ingested events (/events)..."
-EVENTS_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/events?limit=10').read().decode())" 2>/dev/null || echo '{"status":"notice","message":"/events will be available once collector image is rebuilt and restarted"}')
+EVENTS_JSON=$(kubectl exec "$COLLECTOR_POD" -n "$NAMESPACE" -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/events?limit=10').read().decode())")
 echo "$EVENTS_JSON"
 
 echo ""
