@@ -62,6 +62,11 @@ Write-Host ">>> Deploying Collector Service..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\collector\"
 kubectl rollout status deployment/collector-service -n "$Namespace" --timeout=90s
 
+# 9. Deploy Correlation Engine
+Write-Host ">>> Deploying Correlation Engine..." -ForegroundColor Green
+kubectl apply -f "$RootDir\k8s\correlation\"
+kubectl rollout status deployment/correlation-engine -n "$Namespace" --timeout=90s
+
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host " Deployment Complete! Status Summary:" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -76,4 +81,6 @@ Write-Host "  Backend API     : kubectl port-forward svc/backend -n $Namespace 3
 Write-Host "                    -> Health check: curl http://localhost:3000/health"
 Write-Host "  Collector API   : kubectl port-forward svc/collector-service -n $Namespace 8000:8000"
 Write-Host "                    -> Health check: curl http://localhost:8000/health"
+Write-Host "  Correlation API : kubectl port-forward svc/correlation-engine -n $Namespace 8001:8001"
+Write-Host "                    -> Health check: curl http://localhost:8001/health"
 Write-Host "========================================================" -ForegroundColor Cyan

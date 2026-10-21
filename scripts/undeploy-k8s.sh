@@ -26,6 +26,9 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 
 if [ "$MODE" == "--keep-ns" ]; then
+  echo ">>> Deleting Correlation Engine..."
+  kubectl delete -f "$ROOT_DIR/k8s/correlation/" --ignore-not-found=true
+
   echo ">>> Deleting Collector Service..."
   kubectl delete -f "$ROOT_DIR/k8s/collector/" --ignore-not-found=true
 

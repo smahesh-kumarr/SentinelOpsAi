@@ -13,7 +13,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$services = @("backend", "frontend", "collector-service")
+$services = @("backend", "frontend", "collector-service", "correlation-engine")
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " SentinelOpsAI — Building Docker Images (PowerShell)" -ForegroundColor Cyan

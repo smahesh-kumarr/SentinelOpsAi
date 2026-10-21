@@ -71,6 +71,12 @@ kubectl apply -f "$ROOT_DIR/k8s/collector/"
 echo "Waiting for Collector rollout..."
 kubectl rollout status deployment/collector-service -n "$NAMESPACE" --timeout=90s
 
+# 9. Deploy Correlation Engine
+echo ">>> Deploying Correlation Engine..."
+kubectl apply -f "$ROOT_DIR/k8s/correlation/"
+echo "Waiting for Correlation Engine rollout..."
+kubectl rollout status deployment/correlation-engine -n "$NAMESPACE" --timeout=90s
+
 echo ""
 echo "========================================================"
 echo " Deployment Complete! Status Summary:"
@@ -87,4 +93,7 @@ echo "  Backend API     : kubectl port-forward svc/backend -n $NAMESPACE 3000:30
 echo "                    -> Health check: curl http://localhost:3000/health"
 echo "  Collector API   : kubectl port-forward svc/collector-service -n $NAMESPACE 8000:8000"
 echo "                    -> Health check: curl http://localhost:8000/health"
+echo "  Correlation API : kubectl port-forward svc/correlation-engine -n $NAMESPACE 8001:8001"
+echo "                    -> Health check: curl http://localhost:8001/health"
 echo "========================================================"
+

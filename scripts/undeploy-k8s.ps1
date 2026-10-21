@@ -25,6 +25,9 @@ if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
 }
 
 if ($KeepNamespace) {
+    Write-Host ">>> Deleting Correlation Engine..." -ForegroundColor Green
+    kubectl delete -f "$RootDir\k8s\correlation\" --ignore-not-found=true
+
     Write-Host ">>> Deleting Collector Service..." -ForegroundColor Green
     kubectl delete -f "$RootDir\k8s\collector\" --ignore-not-found=true
 

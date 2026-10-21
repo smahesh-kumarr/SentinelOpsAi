@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: correlation-engine
+  namespace: sentinelopsai
+  labels:
+    app: correlation-engine
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: correlation-engine
+  template:
+    metadata:
+      labels:
+        app: correlation-engine
+    spec:
+      containers:
+        - name: correlation-engine
+          image: maheshkumars772/sentinelops-correlation-engine:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
+              name: http
+          env:
+            - name: MONGODB_URI
+              value: "mongodb://mongodb.sentinelopsai.svc.cluster.local:27017/sentinelops"
+            - name: MONGODB_DB_NAME
+              value: "sentinelops"
+            - name: EVENT_WINDOW_SECONDS
+              value: "300"
+            - name: INCIDENT_COOLDOWN_SECONDS
+              value: "600"
+            - name: CORRELATE_INTERVAL_SECONDS
+              value: "15"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 15

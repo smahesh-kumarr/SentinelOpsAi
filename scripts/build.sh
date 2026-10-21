@@ -16,7 +16,7 @@ DOCKER_USER=${1:-"sentinelops"}
 VERSION=${2:-"v1"}
 PUSH_FLAG=${3:-""}
 
-SERVICES=("backend" "frontend" "collector-service")
+SERVICES=("backend" "frontend" "collector-service" "correlation-engine")
 
 echo "========================================================"
 echo " SentinelOpsAI — Building Docker Images"
