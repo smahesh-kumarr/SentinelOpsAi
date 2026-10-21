@@ -20,6 +20,8 @@ falcosidekick:
   enabled: true
   webui:
     enabled: true # Web UI exposed on port 2802
+    redis:
+      storageEnabled: false # Ephemeral storage (no PVC needed for local / single-node VM)
   config:
     webhook:
       address: "http://collector-service.sentinelopsai.svc.cluster.local:8000/events/falco"
