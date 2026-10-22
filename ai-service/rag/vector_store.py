@@ -2,16 +2,8 @@ import os
 import re
 import math
 import logging
+import httpx
 from typing import List, Dict, Any
-
-try:
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams, PointStruct
-except ImportError:
-    QdrantClient = None
-    Distance = None
-    VectorParams = None
-    PointStruct = None
 
 logger = logging.getLogger("ai_service.rag.vector_store")
 
@@ -19,7 +11,6 @@ QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant.sentinelopsai.svc.clust
 COLLECTION_NAME = "runbooks"
 VECTOR_DIM = 64
 
-_qdrant_client = None
 _is_qdrant_available = False
 _in_memory_docs: List[Dict[str, Any]] = []
 
@@ -44,26 +35,27 @@ def _cosine_similarity(v1: List[float], v2: List[float]) -> float:
     return sum(a * b for a, b in zip(v1, v2))
 
 def init_vector_store():
-    global _qdrant_client, _is_qdrant_available
-    if QdrantClient is not None:
-        try:
-            _qdrant_client = QdrantClient(url=QDRANT_URL, timeout=3.0)
-            # Ping / test connection
-            collections = _qdrant_client.get_collections().collections
-            col_names = [c.name for c in collections]
-            if COLLECTION_NAME not in col_names:
-                _qdrant_client.create_collection(
-                    collection_name=COLLECTION_NAME,
-                    vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+    global _is_qdrant_available
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            resp = client.get(f"{QDRANT_URL}/collections/{COLLECTION_NAME}")
+            if resp.status_code == 404:
+                create_resp = client.put(
+                    f"{QDRANT_URL}/collections/{COLLECTION_NAME}",
+                    json={"vectors": {"size": VECTOR_DIM, "distance": "Cosine"}}
                 )
-            _is_qdrant_available = True
-            logger.info(f"Connected to Qdrant vector database at {QDRANT_URL}")
-            return
-        except Exception as e:
-            _is_qdrant_available = False
-            logger.warning(f"Qdrant vector store unreachable ({e}); using internal semantic index.")
-    else:
-        _is_qdrant_available = False
+                if create_resp.status_code in [200, 201]:
+                    _is_qdrant_available = True
+                    logger.info(f"Created collection '{COLLECTION_NAME}' in Qdrant at {QDRANT_URL}")
+                    return
+            elif resp.status_code == 200:
+                _is_qdrant_available = True
+                logger.info(f"Connected to Qdrant vector database collection '{COLLECTION_NAME}' at {QDRANT_URL}")
+                return
+    except Exception as e:
+        logger.warning(f"Qdrant vector store unreachable ({e}); using internal semantic index.")
+    
+    _is_qdrant_available = False
 
 def is_qdrant_active() -> bool:
     return _is_qdrant_available
@@ -72,15 +64,23 @@ def store_chunk(doc_id: int, text: str, source: str) -> None:
     vec = _compute_sparse_vector(text)
     payload = {"text": text, "source": source}
 
-    if _is_qdrant_available and _qdrant_client is not None:
+    if _is_qdrant_available:
         try:
-            _qdrant_client.upsert(
-                collection_name=COLLECTION_NAME,
-                points=[PointStruct(id=doc_id, vector=vec, payload=payload)]
-            )
-            return
+            with httpx.Client(timeout=3.0) as client:
+                body = {
+                    "points": [
+                        {
+                            "id": doc_id,
+                            "vector": vec,
+                            "payload": payload
+                        }
+                    ]
+                }
+                res = client.put(f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points?wait=true", json=body)
+                if res.status_code in [200, 201]:
+                    return
         except Exception as err:
-            logger.error(f"Failed to upsert vector to Qdrant: {err}")
+            logger.error(f"Failed to upsert vector to Qdrant REST API: {err}")
 
     # Fallback in-memory index
     _in_memory_docs.append({
@@ -92,21 +92,29 @@ def store_chunk(doc_id: int, text: str, source: str) -> None:
 def search_chunks(query_text: str, top_k: int = 3) -> List[Dict[str, Any]]:
     query_vec = _compute_sparse_vector(query_text)
 
-    if _is_qdrant_available and _qdrant_client is not None:
+    if _is_qdrant_available:
         try:
-            results = _qdrant_client.search(
-                collection_name=COLLECTION_NAME,
-                query_vector=query_vec,
-                limit=top_k
-            )
-            return [
-                {"score": r.score, "source": r.payload.get("source", ""), "text": r.payload.get("text", "")}
-                for r in results
-            ]
+            with httpx.Client(timeout=3.0) as client:
+                search_body = {
+                    "vector": query_vec,
+                    "limit": top_k,
+                    "with_payload": True
+                }
+                res = client.post(f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points/search", json=search_body)
+                if res.status_code == 200:
+                    hits = res.json().get("result", [])
+                    return [
+                        {
+                            "score": float(h.get("score", 0.0)),
+                            "source": h.get("payload", {}).get("source", ""),
+                            "text": h.get("payload", {}).get("text", "")
+                        }
+                        for h in hits
+                    ]
         except Exception as err:
-            logger.error(f"Failed to search Qdrant vector store: {err}")
+            logger.error(f"Failed to search Qdrant via REST API: {err}")
 
-    # In-memory cosine search
+    # Fallback in-memory cosine search
     scored = []
     for doc in _in_memory_docs:
         sim = _cosine_similarity(query_vec, doc["vector"])
