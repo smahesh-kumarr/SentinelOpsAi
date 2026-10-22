@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: sentinelopsai
+  labels:
+    app: qdrant
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  type: ClusterIP
+  selector:
+    app: qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+    - name: grpc
+      port: 6334
+      targetPort: 6334

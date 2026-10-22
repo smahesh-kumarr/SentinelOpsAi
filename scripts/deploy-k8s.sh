@@ -77,6 +77,24 @@ kubectl apply -f "$ROOT_DIR/k8s/correlation/"
 echo "Waiting for Correlation Engine rollout..."
 kubectl rollout status deployment/correlation-engine -n "$NAMESPACE" --timeout=90s
 
+# 10. Deploy Qdrant Vector Database
+echo ">>> Deploying Qdrant Vector Database..."
+kubectl apply -f "$ROOT_DIR/k8s/qdrant/"
+echo "Waiting for Qdrant rollout..."
+kubectl rollout status deployment/qdrant -n "$NAMESPACE" --timeout=90s
+
+# 11. Deploy AI Root Cause Analysis & RAG Service
+echo ">>> Deploying AI RCA & RAG Service..."
+kubectl apply -f "$ROOT_DIR/k8s/ai-service/"
+echo "Waiting for AI Service rollout..."
+kubectl rollout status deployment/ai-service -n "$NAMESPACE" --timeout=90s
+
+# 12. Deploy Autonomous Remediation AI Agent
+echo ">>> Deploying Autonomous Remediation AI Agent..."
+kubectl apply -f "$ROOT_DIR/k8s/ai-agent/"
+echo "Waiting for AI Agent rollout..."
+kubectl rollout status deployment/ai-agent -n "$NAMESPACE" --timeout=90s
+
 echo ""
 echo "========================================================"
 echo " Deployment Complete! Status Summary:"
@@ -95,5 +113,9 @@ echo "  Collector API   : kubectl port-forward svc/collector-service -n $NAMESPA
 echo "                    -> Health check: curl http://localhost:8000/health"
 echo "  Correlation API : kubectl port-forward svc/correlation-engine -n $NAMESPACE 8001:8001"
 echo "                    -> Health check: curl http://localhost:8001/health"
+echo "  AI RCA & RAG API: kubectl port-forward svc/ai-service -n $NAMESPACE 8002:8002"
+echo "                    -> Health check: curl http://localhost:8002/health"
+echo "  AI Agent API    : kubectl port-forward svc/ai-agent -n $NAMESPACE 8003:8003"
+echo "                    -> Health check: curl http://localhost:8003/health"
 echo "========================================================"
 

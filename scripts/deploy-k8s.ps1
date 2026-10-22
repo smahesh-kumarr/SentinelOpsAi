@@ -67,6 +67,21 @@ Write-Host ">>> Deploying Correlation Engine..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\correlation\"
 kubectl rollout status deployment/correlation-engine -n "$Namespace" --timeout=90s
 
+# 10. Deploy Qdrant Vector Database
+Write-Host ">>> Deploying Qdrant Vector Database..." -ForegroundColor Green
+kubectl apply -f "$RootDir\k8s\qdrant\"
+kubectl rollout status deployment/qdrant -n "$Namespace" --timeout=90s
+
+# 11. Deploy AI Root Cause Analysis & RAG Service
+Write-Host ">>> Deploying AI RCA & RAG Service..." -ForegroundColor Green
+kubectl apply -f "$RootDir\k8s\ai-service\"
+kubectl rollout status deployment/ai-service -n "$Namespace" --timeout=90s
+
+# 12. Deploy Autonomous Remediation AI Agent
+Write-Host ">>> Deploying Autonomous Remediation AI Agent..." -ForegroundColor Green
+kubectl apply -f "$RootDir\k8s\ai-agent\"
+kubectl rollout status deployment/ai-agent -n "$Namespace" --timeout=90s
+
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host " Deployment Complete! Status Summary:" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -83,4 +98,8 @@ Write-Host "  Collector API   : kubectl port-forward svc/collector-service -n $N
 Write-Host "                    -> Health check: curl http://localhost:8000/health"
 Write-Host "  Correlation API : kubectl port-forward svc/correlation-engine -n $Namespace 8001:8001"
 Write-Host "                    -> Health check: curl http://localhost:8001/health"
+Write-Host "  AI RCA & RAG API: kubectl port-forward svc/ai-service -n $Namespace 8002:8002"
+Write-Host "                    -> Health check: curl http://localhost:8002/health"
+Write-Host "  AI Agent API    : kubectl port-forward svc/ai-agent -n $Namespace 8003:8003"
+Write-Host "                    -> Health check: curl http://localhost:8003/health"
 Write-Host "========================================================" -ForegroundColor Cyan

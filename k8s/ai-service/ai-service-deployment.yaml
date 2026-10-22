@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  namespace: sentinelopsai
+  labels:
+    app: ai-service
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+        - name: ai-service
+          image: maheshkumars772/sentinelops-ai-service:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8002
+              name: http
+          env:
+            - name: MONGODB_URI
+              value: "mongodb://mongodb.sentinelopsai.svc.cluster.local:27017/sentinelops"
+            - name: MONGODB_DB_NAME
+              value: "sentinelops"
+            - name: QDRANT_URL
+              value: "http://qdrant.sentinelopsai.svc.cluster.local:6333"
+            - name: ANALYSIS_INTERVAL_SECONDS
+              value: "20"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 15

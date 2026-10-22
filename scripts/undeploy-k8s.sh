@@ -26,6 +26,15 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 
 if [ "$MODE" == "--keep-ns" ]; then
+  echo ">>> Deleting Autonomous Remediation AI Agent..."
+  kubectl delete -f "$ROOT_DIR/k8s/ai-agent/" --ignore-not-found=true
+
+  echo ">>> Deleting AI Service..."
+  kubectl delete -f "$ROOT_DIR/k8s/ai-service/" --ignore-not-found=true
+
+  echo ">>> Deleting Qdrant Vector Database..."
+  kubectl delete -f "$ROOT_DIR/k8s/qdrant/" --ignore-not-found=true
+
   echo ">>> Deleting Correlation Engine..."
   kubectl delete -f "$ROOT_DIR/k8s/correlation/" --ignore-not-found=true
 

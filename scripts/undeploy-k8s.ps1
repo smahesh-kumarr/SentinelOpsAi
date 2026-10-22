@@ -25,6 +25,15 @@ if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
 }
 
 if ($KeepNamespace) {
+    Write-Host ">>> Deleting Autonomous Remediation AI Agent..." -ForegroundColor Green
+    kubectl delete -f "$RootDir\k8s\ai-agent\" --ignore-not-found=true
+
+    Write-Host ">>> Deleting AI Service..." -ForegroundColor Green
+    kubectl delete -f "$RootDir\k8s\ai-service\" --ignore-not-found=true
+
+    Write-Host ">>> Deleting Qdrant Vector Database..." -ForegroundColor Green
+    kubectl delete -f "$RootDir\k8s\qdrant\" --ignore-not-found=true
+
     Write-Host ">>> Deleting Correlation Engine..." -ForegroundColor Green
     kubectl delete -f "$RootDir\k8s\correlation\" --ignore-not-found=true
 
