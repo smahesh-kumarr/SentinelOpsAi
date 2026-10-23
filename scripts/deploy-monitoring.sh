@@ -41,14 +41,37 @@ echo ">>> Updating Prometheus Community Helm repository..."
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-# 4. Install / upgrade kube-prometheus-stack
-echo ">>> Installing kube-prometheus-stack via Helm..."
-helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
-  --namespace "$NAMESPACE" \
-  --create-namespace \
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
-  --set grafana.sidecar.dashboards.enabled=true \
-  --set grafana.sidecar.dashboards.searchNamespace=ALL
+# Clean up any broken pending release from a previous timed-out attempt
+RELEASE_STATUS=$(helm status monitoring -n "$NAMESPACE" -o json 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || true)
+if [ "$RELEASE_STATUS" == "pending-install" ] || [ "$RELEASE_STATUS" == "failed" ]; then
+  echo ">>> Detected $RELEASE_STATUS release from earlier timeout. Cleaning up release state..."
+  helm uninstall monitoring -n "$NAMESPACE" 2>/dev/null || true
+  sleep 3
+fi
+
+# 4. Install / upgrade kube-prometheus-stack with retries and extended timeout
+echo ">>> Installing kube-prometheus-stack via Helm (extended timeout & auto-retry)..."
+for attempt in 1 2 3; do
+  echo ">>> Helm install attempt $attempt of 3..."
+  if helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+    --namespace "$NAMESPACE" \
+    --create-namespace \
+    --timeout 15m0s \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+    --set grafana.sidecar.dashboards.enabled=true \
+    --set grafana.sidecar.dashboards.searchNamespace=ALL; then
+      echo "✓ kube-prometheus-stack installed successfully."
+      break
+  else
+    if [ "$attempt" -eq 3 ]; then
+      echo "Error: Failed to install kube-prometheus-stack after 3 attempts."
+      exit 1
+    fi
+    echo "Warning: Attempt $attempt failed. Cleaning up and retrying in 10s..."
+    helm uninstall monitoring -n "$NAMESPACE" 2>/dev/null || true
+    sleep 10
+  fi
+done
 
 echo "Waiting for Prometheus Operator to start..."
 kubectl rollout status deployment/monitoring-kube-prometheus-operator -n "$NAMESPACE" --timeout=120s

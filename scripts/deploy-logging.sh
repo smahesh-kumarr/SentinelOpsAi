@@ -40,11 +40,34 @@ echo ">>> Updating Grafana Helm repository..."
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-# 4. Deploy Loki & Promtail via loki-stack
-echo ">>> Installing/Upgrading loki-stack..."
-helm upgrade --install loki grafana/loki-stack \
-  --namespace "$NAMESPACE" \
-  --values "$ROOT_DIR/k8s/logging/promtail-values.yaml"
+# Clean up any broken pending release from a previous timed-out attempt
+RELEASE_STATUS=$(helm status loki -n "$NAMESPACE" -o json 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || true)
+if [ "$RELEASE_STATUS" == "pending-install" ] || [ "$RELEASE_STATUS" == "failed" ]; then
+  echo ">>> Detected $RELEASE_STATUS release for loki. Cleaning up release state..."
+  helm uninstall loki -n "$NAMESPACE" 2>/dev/null || true
+  sleep 3
+fi
+
+# 4. Deploy Loki & Promtail via loki-stack with retries and timeout
+echo ">>> Installing/Upgrading loki-stack (extended timeout & auto-retry)..."
+for attempt in 1 2 3; do
+  echo ">>> Loki Helm install attempt $attempt of 3..."
+  if helm upgrade --install loki grafana/loki-stack \
+    --namespace "$NAMESPACE" \
+    --timeout 15m0s \
+    --values "$ROOT_DIR/k8s/logging/promtail-values.yaml"; then
+      echo "✓ loki-stack installed successfully."
+      break
+  else
+    if [ "$attempt" -eq 3 ]; then
+      echo "Error: Failed to install loki-stack after 3 attempts."
+      exit 1
+    fi
+    echo "Warning: Attempt $attempt failed. Retrying in 10s..."
+    helm uninstall loki -n "$NAMESPACE" 2>/dev/null || true
+    sleep 10
+  fi
+done
 
 # 5. Provision Loki as a DataSource in Grafana
 echo ">>> Applying Grafana Loki DataSource ConfigMap..."
