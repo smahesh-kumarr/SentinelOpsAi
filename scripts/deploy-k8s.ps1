@@ -80,13 +80,13 @@ kubectl rollout status deployment/qdrant -n "$Namespace" --timeout=90s
 Write-Host ">>> Deploying AI RCA & RAG Service..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\ai-service\"
 kubectl rollout restart deployment/ai-service -n "$Namespace" *>$null
-kubectl rollout status deployment/ai-service -n "$Namespace" --timeout=90s
+kubectl rollout status deployment/ai-service -n "$Namespace" --timeout=180s
 
 # 12. Deploy Autonomous Remediation AI Agent
 Write-Host ">>> Deploying Autonomous Remediation AI Agent..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\ai-agent\"
 kubectl rollout restart deployment/ai-agent -n "$Namespace" *>$null
-kubectl rollout status deployment/ai-agent -n "$Namespace" --timeout=90s
+kubectl rollout status deployment/ai-agent -n "$Namespace" --timeout=180s
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host " Deployment Complete! Status Summary:" -ForegroundColor Cyan

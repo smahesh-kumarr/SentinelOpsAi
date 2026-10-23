@@ -92,14 +92,14 @@ echo ">>> Deploying AI RCA & RAG Service..."
 kubectl apply -f "$ROOT_DIR/k8s/ai-service/"
 kubectl rollout restart deployment/ai-service -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for AI Service rollout..."
-kubectl rollout status deployment/ai-service -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/ai-service -n "$NAMESPACE" --timeout=180s
 
 # 12. Deploy Autonomous Remediation AI Agent
 echo ">>> Deploying Autonomous Remediation AI Agent..."
 kubectl apply -f "$ROOT_DIR/k8s/ai-agent/"
 kubectl rollout restart deployment/ai-agent -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for AI Agent rollout..."
-kubectl rollout status deployment/ai-agent -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/ai-agent -n "$NAMESPACE" --timeout=180s
 
 echo ""
 echo "========================================================"
