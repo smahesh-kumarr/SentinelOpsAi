@@ -56,24 +56,28 @@ kubectl rollout status deployment/mongodb -n "$NAMESPACE" --timeout=90s
 echo ">>> Deploying Backend..."
 kubectl apply -f "$ROOT_DIR/k8s/backend/backend-deployment.yaml"
 kubectl apply -f "$ROOT_DIR/k8s/backend/backend-service.yaml"
+kubectl rollout restart deployment/backend -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for Backend rollout..."
 kubectl rollout status deployment/backend -n "$NAMESPACE" --timeout=90s
 
 # 7. Deploy Frontend
 echo ">>> Deploying Frontend..."
 kubectl apply -f "$ROOT_DIR/k8s/frontend/"
+kubectl rollout restart deployment/frontend -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for Frontend rollout..."
 kubectl rollout status deployment/frontend -n "$NAMESPACE" --timeout=90s
 
 # 8. Deploy Collector Service
 echo ">>> Deploying Collector Service..."
 kubectl apply -f "$ROOT_DIR/k8s/collector/"
+kubectl rollout restart deployment/collector-service -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for Collector rollout..."
 kubectl rollout status deployment/collector-service -n "$NAMESPACE" --timeout=90s
 
 # 9. Deploy Correlation Engine
 echo ">>> Deploying Correlation Engine..."
 kubectl apply -f "$ROOT_DIR/k8s/correlation/"
+kubectl rollout restart deployment/correlation-engine -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for Correlation Engine rollout..."
 kubectl rollout status deployment/correlation-engine -n "$NAMESPACE" --timeout=90s
 
@@ -86,12 +90,14 @@ kubectl rollout status deployment/qdrant -n "$NAMESPACE" --timeout=90s
 # 11. Deploy AI Root Cause Analysis & RAG Service
 echo ">>> Deploying AI RCA & RAG Service..."
 kubectl apply -f "$ROOT_DIR/k8s/ai-service/"
+kubectl rollout restart deployment/ai-service -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for AI Service rollout..."
 kubectl rollout status deployment/ai-service -n "$NAMESPACE" --timeout=90s
 
 # 12. Deploy Autonomous Remediation AI Agent
 echo ">>> Deploying Autonomous Remediation AI Agent..."
 kubectl apply -f "$ROOT_DIR/k8s/ai-agent/"
+kubectl rollout restart deployment/ai-agent -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for AI Agent rollout..."
 kubectl rollout status deployment/ai-agent -n "$NAMESPACE" --timeout=90s
 

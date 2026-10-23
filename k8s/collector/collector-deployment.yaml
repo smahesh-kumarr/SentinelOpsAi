@@ -20,7 +20,7 @@ spec:
       containers:
         - name: collector-service
           image: maheshkumars772/sentinelops-collector-service:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http

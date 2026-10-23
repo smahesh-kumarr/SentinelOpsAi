@@ -50,21 +50,25 @@ kubectl rollout status deployment/mongodb -n "$Namespace" --timeout=90s
 Write-Host ">>> Deploying Backend..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\backend\backend-deployment.yaml"
 kubectl apply -f "$RootDir\k8s\backend\backend-service.yaml"
+kubectl rollout restart deployment/backend -n "$Namespace" *>$null
 kubectl rollout status deployment/backend -n "$Namespace" --timeout=90s
 
 # 7. Deploy Frontend
 Write-Host ">>> Deploying Frontend..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\frontend\"
+kubectl rollout restart deployment/frontend -n "$Namespace" *>$null
 kubectl rollout status deployment/frontend -n "$Namespace" --timeout=90s
 
 # 8. Deploy Collector Service
 Write-Host ">>> Deploying Collector Service..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\collector\"
+kubectl rollout restart deployment/collector-service -n "$Namespace" *>$null
 kubectl rollout status deployment/collector-service -n "$Namespace" --timeout=90s
 
 # 9. Deploy Correlation Engine
 Write-Host ">>> Deploying Correlation Engine..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\correlation\"
+kubectl rollout restart deployment/correlation-engine -n "$Namespace" *>$null
 kubectl rollout status deployment/correlation-engine -n "$Namespace" --timeout=90s
 
 # 10. Deploy Qdrant Vector Database
@@ -75,11 +79,13 @@ kubectl rollout status deployment/qdrant -n "$Namespace" --timeout=90s
 # 11. Deploy AI Root Cause Analysis & RAG Service
 Write-Host ">>> Deploying AI RCA & RAG Service..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\ai-service\"
+kubectl rollout restart deployment/ai-service -n "$Namespace" *>$null
 kubectl rollout status deployment/ai-service -n "$Namespace" --timeout=90s
 
 # 12. Deploy Autonomous Remediation AI Agent
 Write-Host ">>> Deploying Autonomous Remediation AI Agent..." -ForegroundColor Green
 kubectl apply -f "$RootDir\k8s\ai-agent\"
+kubectl rollout restart deployment/ai-agent -n "$Namespace" *>$null
 kubectl rollout status deployment/ai-agent -n "$Namespace" --timeout=90s
 
 Write-Host "`n========================================================" -ForegroundColor Cyan

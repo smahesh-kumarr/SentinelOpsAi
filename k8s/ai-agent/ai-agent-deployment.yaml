@@ -20,7 +20,7 @@ spec:
       containers:
         - name: ai-agent
           image: maheshkumars772/sentinelops-ai-agent:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8003
               name: http

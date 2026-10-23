@@ -19,7 +19,7 @@ spec:
       containers:
         - name: frontend
           image: maheshkumars772/sentinelops-frontend:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
               name: http

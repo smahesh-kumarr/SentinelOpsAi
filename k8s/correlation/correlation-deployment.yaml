@@ -19,7 +19,7 @@ spec:
       containers:
         - name: correlation-engine
           image: maheshkumars772/sentinelops-correlation-engine:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8001
               name: http
