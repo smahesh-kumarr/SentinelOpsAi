@@ -27,6 +27,10 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 echo "✓ Kubernetes cluster reachable."
 
+# Ensure namespaces exist
+kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace "$APP_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
 # 2. Check if monitoring is already running and healthy (Skip redundant download)
 if kubectl get deployment monitoring-grafana -n "$NAMESPACE" &>/dev/null && \
    kubectl get deployment monitoring-kube-prometheus-operator -n "$NAMESPACE" &>/dev/null; then

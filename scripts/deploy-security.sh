@@ -27,6 +27,10 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 echo "✓ Kubernetes cluster reachable."
 
+# Ensure namespaces exist
+kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl create namespace "$APP_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
 # 2. Check if Falco is already running and healthy (Skip redundant download)
 if kubectl get daemonset falco -n "$NAMESPACE" &>/dev/null && \
    kubectl get deployment falco-falcosidekick -n "$NAMESPACE" &>/dev/null; then

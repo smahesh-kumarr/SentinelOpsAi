@@ -26,6 +26,10 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 echo "✓ Kubernetes cluster reachable."
 
+# Ensure namespaces exist
+kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl create namespace "$APP_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
 # 2. Check if Loki & Promtail are already running and healthy
 if kubectl get daemonset loki-promtail -n "$NAMESPACE" &>/dev/null; then
   LOKI_POD_STATUS=$(kubectl get pods -n "$NAMESPACE" -l app=loki -o jsonpath='{.items[0].status.phase}' 2>/dev/null || true)

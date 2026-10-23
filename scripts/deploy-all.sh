@@ -38,6 +38,13 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 echo "✓ Kubernetes cluster is active and reachable."
 
+# Pre-create all required namespaces
+echo ">>> Ensuring cluster namespaces exist..."
+kubectl create namespace sentinelopsai --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl create namespace falco --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+echo "✓ Namespaces verified: sentinelopsai, monitoring, falco."
+
 # 2. Deploy Monitoring Stack (Prometheus & Grafana)
 echo ""
 echo "=========================================================================="
