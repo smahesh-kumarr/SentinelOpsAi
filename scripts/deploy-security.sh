@@ -27,7 +27,18 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 echo "✓ Kubernetes cluster reachable."
 
-# 2. Check and install Helm if missing
+# 2. Check if Falco is already running and healthy (Skip redundant download)
+if kubectl get daemonset falco -n "$NAMESPACE" &>/dev/null && \
+   kubectl get deployment falco-falcosidekick -n "$NAMESPACE" &>/dev/null; then
+  FALCO_READY=$(kubectl get daemonset falco -n "$NAMESPACE" -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+  if [ "$FALCO_READY" -gt 0 ]; then
+    echo "✓ Runtime Security (Falco & Falcosidekick) is ALREADY running and healthy in '$NAMESPACE'!"
+    echo "========================================================"
+    exit 0
+  fi
+fi
+
+# 3. Check and install Helm if missing
 if ! command -v helm &> /dev/null; then
   echo ">>> Helm CLI not found. Installing Helm..."
   curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -36,10 +47,10 @@ else
   echo "✓ Helm CLI is present: $(helm version --short)"
 fi
 
-# 3. Add and update Falco Helm repository
+# 4. Add and update Falco Helm repository
 echo ">>> Updating Falco Community Helm repository..."
-helm repo add falcosecurity https://falcosecurity.github.io/charts
-helm repo update
+helm repo add falcosecurity https://falcosecurity.github.io/charts 2>/dev/null || true
+helm repo update || true
 
 # Clean up any broken pending release from a previous timed-out attempt
 RELEASE_STATUS=$(helm status falco -n "$NAMESPACE" -o json 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || true)
@@ -49,27 +60,27 @@ if [ "$RELEASE_STATUS" == "pending-install" ] || [ "$RELEASE_STATUS" == "failed"
   sleep 3
 fi
 
-# 4. Deploy Falco + Falcosidekick with retries and timeout
-echo ">>> Installing/Upgrading Falco and Falcosidekick (extended timeout & auto-retry)..."
-for attempt in 1 2 3; do
-  echo ">>> Falco Helm install attempt $attempt of 3..."
-  if helm upgrade --install falco falcosecurity/falco \
-    --namespace "$NAMESPACE" \
-    --create-namespace \
-    --timeout 15m0s \
-    --values "$ROOT_DIR/k8s/security/falco-values.yaml"; then
-      echo "✓ Falco and Falcosidekick installed successfully."
-      break
-  else
-    if [ "$attempt" -eq 3 ]; then
-      echo "Error: Failed to install Falco after 3 attempts."
-      exit 1
-    fi
-    echo "Warning: Attempt $attempt failed. Retrying in 10s..."
-    helm uninstall falco -n "$NAMESPACE" 2>/dev/null || true
-    sleep 10
+# 5. Download falco chart locally to prevent Helm HTTP header timeouts
+CHART_CACHE_DIR="/tmp/sentinelops-charts"
+mkdir -p "$CHART_CACHE_DIR"
+CHART_FILE="$CHART_CACHE_DIR/falco.tgz"
+
+if [ ! -s "$CHART_FILE" ]; then
+  echo ">>> Downloading falco chart archive via curl (forcing IPv4 & retries)..."
+  CHART_URL="https://github.com/falcosecurity/charts/releases/download/falco-9.2.1/falco-9.2.1.tgz"
+  if ! curl -4 -fL --connect-timeout 30 --retry 5 --retry-delay 2 "$CHART_URL" -o "$CHART_FILE"; then
+    echo "Warning: Direct curl download failed. Attempting helm pull..."
+    helm pull falcosecurity/falco --destination "$CHART_CACHE_DIR"
+    CHART_FILE=$(ls -t "$CHART_CACHE_DIR"/falco-*.tgz 2>/dev/null | head -n 1)
   fi
-done
+fi
+
+echo ">>> Installing falco from local archive: $CHART_FILE"
+helm upgrade --install falco "$CHART_FILE" \
+  --namespace "$NAMESPACE" \
+  --create-namespace \
+  --timeout 15m0s \
+  --values "$ROOT_DIR/k8s/security/falco-values.yaml"
 
 echo "Waiting for Falco DaemonSet to roll out..."
 kubectl rollout status daemonset/falco -n "$NAMESPACE" --timeout=180s 2>/dev/null || true
