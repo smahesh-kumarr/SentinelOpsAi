@@ -26,6 +26,9 @@ if ! kubectl cluster-info > /dev/null 2>&1; then
 fi
 
 if [ "$MODE" == "--keep-ns" ]; then
+  echo ">>> Deleting Monitoring App (Backend & Frontend)..."
+  kubectl delete -f "$ROOT_DIR/k8s/monitoring-app/" --ignore-not-found=true
+
   echo ">>> Deleting Autonomous Remediation AI Agent..."
   kubectl delete -f "$ROOT_DIR/k8s/ai-agent/" --ignore-not-found=true
 

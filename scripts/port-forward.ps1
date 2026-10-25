@@ -15,8 +15,10 @@ param (
 $ErrorActionPreference = "SilentlyContinue"
 
 $services = @(
-    @{ Name = "frontend"; Target = "svc/frontend"; Namespace = "sentinelopsai"; Port = "8080:80"; Desc = "Frontend UI & SRE Dock" },
-    @{ Name = "backend"; Target = "svc/backend"; Namespace = "sentinelopsai"; Port = "3000:3000"; Desc = "Express API & /simulate" },
+    @{ Name = "frontend"; Target = "svc/frontend"; Namespace = "sentinelopsai"; Port = "8080:80"; Desc = "Workload Frontend UI (TaskFlow)" },
+    @{ Name = "backend"; Target = "svc/backend"; Namespace = "sentinelopsai"; Port = "3000:3000"; Desc = "Workload API & /simulate" },
+    @{ Name = "monitoring-frontend"; Target = "svc/monitoring-frontend"; Namespace = "sentinelopsai"; Port = "8090:80"; Desc = "SRE Command Center Dashboard" },
+    @{ Name = "monitoring-backend"; Target = "svc/monitoring-backend"; Namespace = "sentinelopsai"; Port = "3002:3002"; Desc = "SRE API Gateway" },
     @{ Name = "grafana"; Target = "svc/monitoring-grafana"; Namespace = "monitoring"; Port = "3001:80"; Desc = "Grafana (admin / prom-operator)" },
     @{ Name = "prometheus"; Target = "svc/monitoring-kube-prometheus-prometheus"; Namespace = "monitoring"; Port = "9090:9090"; Desc = "Prometheus Metrics UI" },
     @{ Name = "falcosidekick"; Target = "svc/falco-falcosidekick-ui"; Namespace = "falco"; Port = "2802:2802"; Desc = "Falco Security UI (admin / admin)" },

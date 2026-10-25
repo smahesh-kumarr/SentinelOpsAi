@@ -25,6 +25,9 @@ if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
 }
 
 if ($KeepNamespace) {
+    Write-Host ">>> Deleting Monitoring App (Backend & Frontend)..." -ForegroundColor Green
+    kubectl delete -f "$RootDir\k8s\monitoring-app\" --ignore-not-found=true
+
     Write-Host ">>> Deleting Autonomous Remediation AI Agent..." -ForegroundColor Green
     kubectl delete -f "$RootDir\k8s\ai-agent\" --ignore-not-found=true
 

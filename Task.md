@@ -388,21 +388,31 @@ SentinelOpsAi/
 
 ---
 
-### Phase 12: Unified SRE Dashboard & Incident Response Console — COMPLETED ✅
+### Phase 12: Decoupled SRE Command Center & Workload Architecture — COMPLETED ✅
 
-- [x] Multi-tab navigation in `frontend/src/components/Navbar.jsx`:
-  - 🛡️ **AI Incident Response**: Real-time correlated incidents stream with live notification badge.
-  - 📋 **Workload Tasks**: ToDo application with SRE failure simulation dock.
-  - 📜 **Remediation Audit**: Real-time table of autonomous agent actions and closed-loop verification results.
-  - 🌐 **Cluster Observability**: Microservice topology grid and direct links to Grafana, Prometheus, Falcosidekick.
-- [x] Interactive Incident Response Center (`frontend/src/components/IncidentConsole.jsx`):
-  - Incident severity badges (Critical, Warning, Info), AI confidence gauges.
-  - Synthesized AI Root Cause diagnosis display.
-  - Multi-source correlated evidence viewer (Prometheus, Loki, Falco).
-  - 1-Click Human-in-the-Loop **"Approve & Execute"** and **"Reject"** buttons.
-- [x] Audit Trail viewer (`frontend/src/components/AuditTrail.jsx`).
-- [x] Cluster Overview & Natural Language RAG Explorer (`frontend/src/components/ClusterOverview.jsx`).
-- [x] Master End-to-End Autonomous Pipeline Script [`scripts/test-e2e.sh`](file:///c:/Users/mahes/OneDrive/Documents/Desktop/SentinelOpsAi/scripts/test-e2e.sh).
+- [x] **Decoupled Workload Architecture (`frontend/` & `backend/`)**:
+  - Restored `frontend/` as a dedicated business Task Management CRUD application (`TaskFlow`) on port 8080 (NodePort 30080).
+  - Kept SRE chaos failure injection testbed (`/simulate`) cleanly isolated to workload backend.
+  - Nginx reverse-proxy targeting only `backend:3000`.
+- [x] **Dedicated SRE Monitoring Service (`monitoring-app/`)**:
+  - Created standalone service directory `monitoring-app/` containing separate backend gateway and frontend UI.
+  - **Monitoring Gateway Backend (`monitoring-app/backend/`)**:
+    - Express.js aggregation API on port **3002** (leaving 3001 reserved for Grafana).
+    - Aggregates Correlation Engine (8001), AI RCA Service (8002), Remediation Agent (8003), Collector (8000), and Workload (3000).
+    - Prometheus metrics on `/metrics`, health probe on `/health`.
+    - Multi-stage Dockerfile and Kubernetes manifests in `k8s/monitoring-app/monitoring-backend-*.yaml`.
+  - **Monitoring Command Center Frontend (`monitoring-app/frontend/`)**:
+    - Standalone React 18 / Vite SPA running on port **8090** (NodePort 30090).
+    - Modern glassmorphic dark-mode SRE UI.
+    - **Incidents & AI RCA Console**: Real-time stream, AI confidence gauge, synthesized root-cause, multi-source evidence, 1-click human approval gate.
+    - **Remediation Ledger**: Safety circuit breaker status banner, immutable audit log.
+    - **Cluster Topology & RAG Explorer**: Microservice health, live latency, external portal launchers (Grafana, Prometheus, Falco), and Qdrant vector semantic runbook search.
+    - **Chaos Lab**: One-click synthetic fault injection (CrashLoopBackOff, CPU Burner, OOMKill, Latency Spike, 500 Storm).
+- [x] **Kubernetes Deployment & Port Forwarding**:
+  - Created Kubernetes deployment and service manifests in `k8s/monitoring-app/`.
+  - Updated `scripts/build.sh` and `build.ps1` to build and push `monitoring-backend` and `monitoring-frontend` images.
+  - Updated `scripts/deploy-k8s.sh` and `deploy-k8s.ps1` to deploy `k8s/monitoring-app/`.
+  - Updated `scripts/port-forward.sh` and `port-forward.ps1` with tunnels for port 8090 (UI) and port 3002 (API Gateway).
 
 ---
 

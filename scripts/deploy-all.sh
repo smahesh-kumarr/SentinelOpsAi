@@ -101,6 +101,8 @@ else
   echo "Notice: Port-forwarding was skipped (--no-ports specified)."
   echo "To launch all background port-forwards later, run:"
   echo "  ./scripts/port-forward.sh start"
+fi
+
 # 8. Optional Automated End-to-End Self-Healing Verification
 if [[ "$*" == *"--verify"* ]] || [[ "$*" == *"--test"* ]]; then
   echo ""

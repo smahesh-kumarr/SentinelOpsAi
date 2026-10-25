@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-backend
+  namespace: sentinelopsai
+  labels:
+    app: monitoring-backend
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring-backend
+  template:
+    metadata:
+      labels:
+        app: monitoring-backend
+    spec:
+      containers:
+        - name: monitoring-backend
+          image: maheshkumars772/sentinelops-monitoring-backend:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3002
+              name: http
+          env:
+            - name: PORT
+              value: "3002"
+            - name: CORRELATION_URL
+              value: "http://correlation-engine.sentinelopsai.svc.cluster.local:8001"
+            - name: AI_SERVICE_URL
+              value: "http://ai-service.sentinelopsai.svc.cluster.local:8002"
+            - name: AI_AGENT_URL
+              value: "http://ai-agent.sentinelopsai.svc.cluster.local:8003"
+            - name: COLLECTOR_URL
+              value: "http://collector-service.sentinelopsai.svc.cluster.local:8000"
+            - name: WORKLOAD_URL
+              value: "http://backend.sentinelopsai.svc.cluster.local:3000"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 15

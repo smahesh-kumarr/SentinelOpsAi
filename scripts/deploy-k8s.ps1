@@ -88,6 +88,14 @@ kubectl apply -f "$RootDir\k8s\ai-agent\"
 kubectl rollout restart deployment/ai-agent -n "$Namespace" *>$null
 kubectl rollout status deployment/ai-agent -n "$Namespace" --timeout=180s
 
+# 13. Deploy Dedicated Monitoring App (Backend Gateway & SRE UI)
+Write-Host ">>> Deploying Monitoring App (Backend & Frontend)..." -ForegroundColor Green
+kubectl apply -f "$RootDir\k8s\monitoring-app\"
+kubectl rollout restart deployment/monitoring-backend -n "$Namespace" *>$null
+kubectl rollout restart deployment/monitoring-frontend -n "$Namespace" *>$null
+kubectl rollout status deployment/monitoring-backend -n "$Namespace" --timeout=90s
+kubectl rollout status deployment/monitoring-frontend -n "$Namespace" --timeout=90s
+
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host " Deployment Complete! Status Summary:" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -96,10 +104,14 @@ Write-Host ""
 kubectl get services -n "$Namespace"
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host "`n>>> Access Commands:" -ForegroundColor Yellow
-Write-Host "  Frontend Web UI : kubectl port-forward svc/frontend -n $Namespace 8080:80"
+Write-Host "  Workload App UI : kubectl port-forward svc/frontend -n $Namespace 8080:80"
 Write-Host "                    -> Open http://localhost:8080"
-Write-Host "  Backend API     : kubectl port-forward svc/backend -n $Namespace 3000:3000"
+Write-Host "  Workload API    : kubectl port-forward svc/backend -n $Namespace 3000:3000"
 Write-Host "                    -> Health check: curl http://localhost:3000/health"
+Write-Host "  SRE Command UI  : kubectl port-forward svc/monitoring-frontend -n $Namespace 8090:80"
+Write-Host "                    -> Open http://localhost:8090"
+Write-Host "  SRE Gateway API : kubectl port-forward svc/monitoring-backend -n $Namespace 3002:3002"
+Write-Host "                    -> Health check: curl http://localhost:3002/health"
 Write-Host "  Collector API   : kubectl port-forward svc/collector-service -n $Namespace 8000:8000"
 Write-Host "                    -> Health check: curl http://localhost:8000/health"
 Write-Host "  Correlation API : kubectl port-forward svc/correlation-engine -n $Namespace 8001:8001"

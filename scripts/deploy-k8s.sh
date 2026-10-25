@@ -101,6 +101,16 @@ kubectl rollout restart deployment/ai-agent -n "$NAMESPACE" 2>/dev/null || true
 echo "Waiting for AI Agent rollout..."
 kubectl rollout status deployment/ai-agent -n "$NAMESPACE" --timeout=180s
 
+# 13. Deploy Dedicated Monitoring & SRE App (Backend Gateway & Frontend UI)
+echo ">>> Deploying Dedicated Monitoring App (Backend & Frontend)..."
+kubectl apply -f "$ROOT_DIR/k8s/monitoring-app/"
+kubectl rollout restart deployment/monitoring-backend -n "$NAMESPACE" 2>/dev/null || true
+kubectl rollout restart deployment/monitoring-frontend -n "$NAMESPACE" 2>/dev/null || true
+echo "Waiting for Monitoring Backend rollout..."
+kubectl rollout status deployment/monitoring-backend -n "$NAMESPACE" --timeout=90s
+echo "Waiting for Monitoring Frontend rollout..."
+kubectl rollout status deployment/monitoring-frontend -n "$NAMESPACE" --timeout=90s
+
 echo ""
 echo "========================================================"
 echo " Deployment Complete! Status Summary:"
@@ -111,10 +121,14 @@ kubectl get services -n "$NAMESPACE"
 echo "========================================================"
 echo ""
 echo ">>> Access Commands:"
-echo "  Frontend Web UI : kubectl port-forward svc/frontend -n $NAMESPACE 8080:80"
+echo "  Workload App UI : kubectl port-forward svc/frontend -n $NAMESPACE 8080:80"
 echo "                    -> Open http://localhost:8080"
-echo "  Backend API     : kubectl port-forward svc/backend -n $NAMESPACE 3000:3000"
+echo "  Workload API    : kubectl port-forward svc/backend -n $NAMESPACE 3000:3000"
 echo "                    -> Health check: curl http://localhost:3000/health"
+echo "  SRE Command UI  : kubectl port-forward svc/monitoring-frontend -n $NAMESPACE 8090:80"
+echo "                    -> Open http://localhost:8090"
+echo "  SRE Gateway API : kubectl port-forward svc/monitoring-backend -n $NAMESPACE 3002:3002"
+echo "                    -> Health check: curl http://localhost:3002/health"
 echo "  Collector API   : kubectl port-forward svc/collector-service -n $NAMESPACE 8000:8000"
 echo "                    -> Health check: curl http://localhost:8000/health"
 echo "  Correlation API : kubectl port-forward svc/correlation-engine -n $NAMESPACE 8001:8001"

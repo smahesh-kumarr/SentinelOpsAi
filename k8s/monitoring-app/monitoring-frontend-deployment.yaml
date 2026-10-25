@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-frontend
+  namespace: sentinelopsai
+  labels:
+    app: monitoring-frontend
+    app.kubernetes.io/part-of: sentinelopsai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring-frontend
+  template:
+    metadata:
+      labels:
+        app: monitoring-frontend
+    spec:
+      containers:
+        - name: monitoring-frontend
+          image: maheshkumars772/sentinelops-monitoring-frontend:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15

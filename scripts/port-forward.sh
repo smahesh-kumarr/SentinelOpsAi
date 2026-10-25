@@ -21,8 +21,10 @@ mkdir -p "$LOG_DIR"
 
 # Service definitions: Name | Namespace | K8s Target | Port Mapping | Endpoint/Credentials
 SERVICES=(
-  "frontend|sentinelopsai|svc/frontend|8080:80|Frontend UI & SRE Dock"
-  "backend|sentinelopsai|svc/backend|3000:3000|Express API & /simulate"
+  "frontend|sentinelopsai|svc/frontend|8080:80|Workload Frontend UI (TaskFlow)"
+  "backend|sentinelopsai|svc/backend|3000:3000|Workload API & /simulate"
+  "monitoring-frontend|sentinelopsai|svc/monitoring-frontend|8090:80|SRE Command Center Dashboard"
+  "monitoring-backend|sentinelopsai|svc/monitoring-backend|3002:3002|SRE API Gateway"
   "grafana|monitoring|svc/monitoring-grafana|3001:80|Grafana (admin / prom-operator)"
   "prometheus|monitoring|svc/monitoring-kube-prometheus-prometheus|9090:9090|Prometheus Metrics UI"
   "falcosidekick|falco|svc/falco-falcosidekick-ui|2802:2802|Falco Security UI (admin / admin)"
@@ -44,7 +46,7 @@ stop_ports() {
     rm -f "$PID_FILE"
   fi
   # Clean up any orphan kubectl port-forwards for our mapped ports
-  pkill -f "kubectl port-forward.*(8080|3000|3001|9090|2802|8000|8001|8002|8003|6333)" 2>/dev/null || true
+  pkill -f "kubectl port-forward.*(8080|8090|3000|3001|3002|9090|2802|8000|8001|8002|8003|6333)" 2>/dev/null || true
   sleep 1
   echo "✓ All background port-forwards stopped."
 }

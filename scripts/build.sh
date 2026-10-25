@@ -16,7 +16,16 @@ DOCKER_USER=${1:-"sentinelops"}
 VERSION=${2:-"v1"}
 PUSH_FLAG=${3:-""}
 
-SERVICES=("backend" "frontend" "collector-service" "correlation-engine" "ai-service" "ai-agent")
+SERVICES=(
+  "backend:backend"
+  "frontend:frontend"
+  "collector-service:collector-service"
+  "correlation-engine:correlation-engine"
+  "ai-service:ai-service"
+  "ai-agent:ai-agent"
+  "monitoring-backend:monitoring-app/backend"
+  "monitoring-frontend:monitoring-app/frontend"
+)
 
 echo "========================================================"
 echo " SentinelOpsAI — Building Docker Images"
@@ -34,13 +43,14 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-for svc in "${SERVICES[@]}"; do
+for entry in "${SERVICES[@]}"; do
+  IFS=":" read -r svc svc_dir <<< "$entry"
   IMAGE_TAG="$DOCKER_USER/sentinelops-$svc:$VERSION"
   LATEST_TAG="$DOCKER_USER/sentinelops-$svc:latest"
   
   echo ""
-  echo ">>> Building $svc ($IMAGE_TAG)..."
-  docker build -t "$IMAGE_TAG" -t "$LATEST_TAG" "$ROOT_DIR/$svc"
+  echo ">>> Building $svc ($IMAGE_TAG) from $svc_dir..."
+  docker build -t "$IMAGE_TAG" -t "$LATEST_TAG" "$ROOT_DIR/$svc_dir"
   
   echo "✓ Successfully built $IMAGE_TAG"
 done
@@ -55,7 +65,8 @@ echo "========================================================"
 if [ "$PUSH_FLAG" == "--push" ] || [ "$3" == "-p" ]; then
   echo ""
   echo ">>> Pushing images to DockerHub..."
-  for svc in "${SERVICES[@]}"; do
+  for entry in "${SERVICES[@]}"; do
+    IFS=":" read -r svc svc_dir <<< "$entry"
     docker push "$DOCKER_USER/sentinelops-$svc:$VERSION"
     docker push "$DOCKER_USER/sentinelops-$svc:latest"
   done

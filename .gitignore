@@ -1,0 +1,13 @@
+node_modules/
+*/node_modules/
+*/*/node_modules/
+dist/
+*/dist/
+*/*/dist/
+.env
+*.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.log

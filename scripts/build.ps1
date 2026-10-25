@@ -13,7 +13,16 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$services = @("backend", "frontend", "collector-service", "correlation-engine", "ai-service", "ai-agent")
+$services = @(
+    @{ Name = "backend"; Dir = "backend" },
+    @{ Name = "frontend"; Dir = "frontend" },
+    @{ Name = "collector-service"; Dir = "collector-service" },
+    @{ Name = "correlation-engine"; Dir = "correlation-engine" },
+    @{ Name = "ai-service"; Dir = "ai-service" },
+    @{ Name = "ai-agent"; Dir = "ai-agent" },
+    @{ Name = "monitoring-backend"; Dir = "monitoring-app/backend" },
+    @{ Name = "monitoring-frontend"; Dir = "monitoring-app/frontend" }
+)
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " SentinelOpsAI — Building Docker Images (PowerShell)" -ForegroundColor Cyan
@@ -29,11 +38,11 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 }
 
 foreach ($svc in $services) {
-    $imageTag = "$($DockerUser)/sentinelops-$($svc):$($Version)"
-    $latestTag = "$($DockerUser)/sentinelops-$($svc):latest"
+    $imageTag = "$($DockerUser)/sentinelops-$($svc.Name):$($Version)"
+    $latestTag = "$($DockerUser)/sentinelops-$($svc.Name):latest"
 
-    Write-Host "`n>>> Building $svc ($imageTag)..." -ForegroundColor Green
-    docker build -t $imageTag -t $latestTag "./$svc"
+    Write-Host "`n>>> Building $($svc.Name) ($imageTag)..." -ForegroundColor Green
+    docker build -t $imageTag -t $latestTag "./$($svc.Dir)"
     Write-Host "✓ Successfully built $imageTag" -ForegroundColor Green
 }
 
@@ -45,8 +54,8 @@ Write-Host "========================================================" -Foregroun
 if ($Push) {
     Write-Host "`n>>> Pushing images to DockerHub..." -ForegroundColor Green
     foreach ($svc in $services) {
-        docker push "$($DockerUser)/sentinelops-$($svc):$($Version)"
-        docker push "$($DockerUser)/sentinelops-$($svc):latest"
+        docker push "$($DockerUser)/sentinelops-$($svc.Name):$($Version)"
+        docker push "$($DockerUser)/sentinelops-$($svc.Name):latest"
     }
     Write-Host "✓ All images pushed to DockerHub successfully!" -ForegroundColor Green
 } else {
