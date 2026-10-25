@@ -101,6 +101,12 @@ else
   echo "Notice: Port-forwarding was skipped (--no-ports specified)."
   echo "To launch all background port-forwards later, run:"
   echo "  ./scripts/port-forward.sh start"
+# 8. Optional Automated End-to-End Self-Healing Verification
+if [[ "$*" == *"--verify"* ]] || [[ "$*" == *"--test"* ]]; then
+  echo ""
+  echo ">>> Executing automated end-to-end self-healing loop verification..."
+  chmod +x "$SCRIPT_DIR/test-e2e.sh"
+  "$SCRIPT_DIR/test-e2e.sh"
 fi
 
 echo ""
