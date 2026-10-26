@@ -47,6 +47,14 @@ export default function Navbar({ activeTab, onSelectTab, incidentCount = 0, isRe
           <span>💥</span>
           <span>Chaos Lab</span>
         </button>
+
+        <button
+          className={`nav-tab-btn ${activeTab === "chatbot" ? "active" : ""}`}
+          onClick={() => onSelectTab("chatbot")}
+        >
+          <span>🤖</span>
+          <span>SRE Copilot</span>
+        </button>
       </nav>
 
       <div className="nav-actions">

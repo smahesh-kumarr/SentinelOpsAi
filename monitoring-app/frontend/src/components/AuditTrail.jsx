@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { triggerRemediation } from "../api";
+import { triggerRemediation, simulateAuditEntry } from "../api";
 
 export default function AuditTrail({ auditHistory = [], circuitBreaker = null, onReload, isBusy = false }) {
   const [filterOutcome, setFilterOutcome] = useState("all");
@@ -7,8 +7,10 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  // Trigger real remediation cycle via agent
   const handleRunRemediation = async () => {
     setActionLoading(true);
+    setMsg({ type: "info", text: "Dispatching autonomous remediation cycle to cluster..." });
     try {
       const res = await triggerRemediation();
       setMsg({ type: "info", text: res.message || "Autonomous remediation loop completed." });
@@ -20,13 +22,39 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
     }
   };
 
+  // Test simulation to verify ledger functionality immediately
+  const handleSimulateTestLog = async () => {
+    setActionLoading(true);
+    try {
+      const res = await simulateAuditEntry("rollout_restart", "backend");
+      setMsg({ type: "info", text: `✓ Verified: ${res.message}` });
+      if (onReload) onReload();
+    } catch (err) {
+      setMsg({ type: "error", text: `Simulate audit log failed: ${err.message}` });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredHistory = auditHistory.filter((item) => {
     const outcome = (item.status || item.outcome || "success").toLowerCase();
-    const action = (item.action_type || item.action || "").toLowerCase();
+    const action = (item.action_type || item.action_key || item.action || "").toLowerCase();
     const target = (item.target || item.service || "").toLowerCase();
     const id = (item.incident_id || "").toLowerCase();
 
-    const matchesOutcome = filterOutcome === "all" || outcome === filterOutcome;
+    let matchesOutcome = true;
+    if (filterOutcome === "success") {
+      matchesOutcome = outcome === "success" || outcome === "executed" || outcome === "resolved";
+    } else if (filterOutcome === "blocked") {
+      matchesOutcome = outcome.includes("block") || outcome.includes("circuit");
+    } else if (filterOutcome === "failed") {
+      matchesOutcome = outcome === "failed" || outcome === "error";
+    } else if (filterOutcome === "pending") {
+      matchesOutcome = outcome === "pending" || outcome.includes("approval");
+    } else if (filterOutcome === "rejected") {
+      matchesOutcome = outcome === "rejected";
+    }
+
     const matchesSearch =
       !searchTerm ||
       action.includes(searchTerm.toLowerCase()) ||
@@ -49,6 +77,8 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
           justifyContent: "space-between",
           alignItems: "center",
           borderLeft: `4px solid ${isTripped ? "var(--rose-500)" : "var(--emerald-500)"}`,
+          flexWrap: "wrap",
+          gap: "16px",
         }}
       >
         <div>
@@ -62,12 +92,21 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
             </span>
           </div>
           <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-            Prevents remediation loops and cascading restarts. Max actions: {circuitBreaker?.max_actions || 5}/hr.
+            Prevents infinite restart loops & deployment thrashing. Max actions: {circuitBreaker?.max_actions || 5}/hr.
             Consecutive failures: {circuitBreaker?.consecutive_failures || 0}.
           </div>
         </div>
 
-        <div>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            className="refresh-btn"
+            onClick={handleSimulateTestLog}
+            disabled={actionLoading}
+            title="Inject a test entry to confirm the ledger is actively receiving records"
+          >
+            ⚡ Test Ledger Record
+          </button>
+
           <button
             className="btn-primary"
             onClick={handleRunRemediation}
@@ -106,17 +145,11 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
           <select
             value={filterOutcome}
             onChange={(e) => setFilterOutcome(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              background: "rgba(0, 0, 0, 0.4)",
-              color: "#fff",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "8px",
-              fontSize: "13px",
-            }}
+            className="filter-select"
           >
-            <option value="all">All Outcomes</option>
+            <option value="all">All Outcomes ({auditHistory.length})</option>
             <option value="success">Success / Executed</option>
+            <option value="blocked">Blocked (Circuit Breaker)</option>
             <option value="failed">Failed</option>
             <option value="pending">Pending Approval</option>
             <option value="rejected">Rejected</option>
@@ -142,19 +175,39 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
             <tbody>
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)" }}>
-                    No remediation actions recorded in audit ledger yet.
+                  <td colSpan="7" style={{ textAlign: "center", padding: "50px 20px", color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: "28px", marginBottom: "8px" }}>📜</div>
+                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#f1f5f9" }}>
+                      No Remediation Actions In Ledger Yet
+                    </div>
+                    <div style={{ fontSize: "12.5px", marginTop: "4px", color: "var(--text-muted)" }}>
+                      Actions are logged whenever the AI Agent executes a closed-loop self-healing action or an SRE approves a recommendation.
+                    </div>
+                    <div style={{ marginTop: "16px" }}>
+                      <button
+                        className="btn-ai"
+                        style={{ fontSize: "12px", padding: "8px 16px" }}
+                        onClick={handleSimulateTestLog}
+                      >
+                        ⚡ Simulate Test Action to Verify Ledger
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredHistory.map((item, idx) => {
                   const outcome = (item.status || item.outcome || "success").toLowerCase();
                   let badgeCls = "badge-success";
-                  if (outcome === "failed") badgeCls = "badge-critical";
-                  if (outcome === "pending") badgeCls = "badge-high";
+                  if (outcome === "failed" || outcome === "error") badgeCls = "badge-critical";
+                  if (outcome.includes("block") || outcome.includes("circuit")) badgeCls = "badge-critical";
+                  if (outcome === "pending" || outcome.includes("approval")) badgeCls = "badge-high";
                   if (outcome === "rejected") badgeCls = "badge-low";
 
                   const ts = item.timestamp ? new Date(item.timestamp).toLocaleString() : "Just now";
+                  const actionName = item.action_type || item.action_key || item.action || "rollout_restart";
+                  const executor = item.initiated_by || item.executor || item.approver || "autonomous_agent";
+                  const target = item.target || item.service || "backend";
+                  const detail = item.details || item.reason || item.message || item.command || (typeof item.result === "object" ? JSON.stringify(item.result) : item.result) || "Executed remediation action via Kubernetes API";
 
                   return (
                     <tr key={idx}>
@@ -165,21 +218,21 @@ export default function AuditTrail({ auditHistory = [], circuitBreaker = null, o
                         {item.incident_id || `inc-00${idx + 1}`}
                       </td>
                       <td className="mono" style={{ fontSize: "12.5px", fontWeight: "600" }}>
-                        {item.target || item.service || "backend"}
+                        {target}
                       </td>
                       <td style={{ fontWeight: "600" }}>
-                        {item.action_type || item.action || "rollout_restart"}
+                        <span className="mono" style={{ color: "#f8fafc" }}>{actionName}</span>
                       </td>
                       <td>
                         <span className="mono" style={{ fontSize: "11px", color: "var(--violet-400)" }}>
-                          {item.initiated_by || item.approver || "autonomous_agent"}
+                          {executor}
                         </span>
                       </td>
                       <td>
                         <span className={`badge ${badgeCls}`}>{outcome}</span>
                       </td>
-                      <td style={{ fontSize: "12px", color: "var(--text-secondary)", maxWidth: "300px" }}>
-                        {item.details || item.reason || item.message || "Executed rollout restart via Kubernetes API"}
+                      <td style={{ fontSize: "12px", color: "var(--text-secondary)", maxWidth: "340px", lineHeight: "1.4" }}>
+                        {detail}
                       </td>
                     </tr>
                   );

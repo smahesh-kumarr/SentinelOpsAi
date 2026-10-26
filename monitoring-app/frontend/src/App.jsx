@@ -4,6 +4,7 @@ import IncidentConsole from "./components/IncidentConsole";
 import AuditTrail from "./components/AuditTrail";
 import ClusterTopology from "./components/ClusterTopology";
 import ChaosConsole from "./components/ChaosConsole";
+import Chatbot from "./components/Chatbot";
 import { getAnalyzedIncidents, getAuditHistory, getCircuitBreaker, getTopology } from "./api";
 
 // Fallback initial incident if cluster is idle or backend starting
@@ -60,7 +61,9 @@ export default function App() {
       }
 
       if (auditRes.status === "fulfilled") {
-        const hist = Array.isArray(auditRes.value) ? auditRes.value : auditRes.value?.history || [];
+        const hist = Array.isArray(auditRes.value)
+          ? auditRes.value
+          : (auditRes.value?.audit_trail || auditRes.value?.history || []);
         setAuditHistory(hist);
       }
 
@@ -153,6 +156,10 @@ export default function App() {
               }, 3000);
             }}
           />
+        )}
+
+        {activeTab === "chatbot" && (
+          <Chatbot onNavigateTab={setActiveTab} />
         )}
       </main>
     </div>

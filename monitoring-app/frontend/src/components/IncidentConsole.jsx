@@ -1,14 +1,15 @@
 import React, { useState } from "react";
-import { triggerAnalysis, triggerRemediation, approveRemediation, rejectRemediation } from "../api";
+import { triggerAnalysis, triggerRemediation, approveRemediation, rejectRemediation, resolveIncident } from "../api";
 
 export default function IncidentConsole({ incidents = [], onReload, isBusy = false }) {
   const [selectedId, setSelectedId] = useState(incidents[0]?.incident_id || incidents[0]?.id || null);
   const [filterSeverity, setFilterSeverity] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all"); // 'all' | 'active' | 'resolved'
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
 
-  // Auto-select first incident if none selected
+  // Auto-select first matching incident if none selected
   const activeIncident = incidents.find(
     (inc) => (inc.incident_id || inc.id) === (selectedId || (incidents[0]?.incident_id || incidents[0]?.id))
   ) || incidents[0];
@@ -16,13 +17,22 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
   // Filtering
   const filtered = incidents.filter((inc) => {
     const sev = (inc.severity || "medium").toLowerCase();
+    const status = (inc.status || "open").toLowerCase();
     const title = (inc.title || inc.description || inc.root_cause || "").toLowerCase();
     const service = (inc.service || inc.workload || "").toLowerCase();
 
     const matchesSeverity = filterSeverity === "all" || sev === filterSeverity;
+    
+    let matchesStatus = true;
+    if (filterStatus === "active") {
+      matchesStatus = status !== "resolved" && status !== "closed";
+    } else if (filterStatus === "resolved") {
+      matchesStatus = status === "resolved" || status === "closed";
+    }
+
     const matchesSearch = !searchQuery || title.includes(searchQuery.toLowerCase()) || service.includes(searchQuery.toLowerCase());
 
-    return matchesSeverity && matchesSearch;
+    return matchesSeverity && matchesStatus && matchesSearch;
   });
 
   // Trigger on-demand AI analysis
@@ -86,8 +96,23 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
     }
   };
 
+  // Manually mark incident as resolved
+  const handleMarkResolved = async (incidentId) => {
+    if (!incidentId) return;
+    setActionLoading(true);
+    try {
+      await resolveIncident(incidentId, "Acknowledged & verified by SRE operator");
+      setStatusMsg({ type: "info", text: `Incident ${incidentId} marked as RESOLVED!` });
+      if (onReload) onReload();
+    } catch (err) {
+      setStatusMsg({ type: "error", text: `Failed to resolve incident: ${err.message}` });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Helper for severity badge
-  const renderBadge = (sev) => {
+  const renderSeverityBadge = (sev) => {
     const s = (sev || "medium").toLowerCase();
     let cls = "badge-medium";
     if (s === "critical") cls = "badge-critical";
@@ -96,10 +121,96 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
     return <span className={`badge ${cls}`}>{s}</span>;
   };
 
+  // Helper for status badge
+  const renderStatusBadge = (status) => {
+    const st = (status || "open").toLowerCase();
+    if (st === "resolved" || st === "closed") {
+      return (
+        <span className="badge badge-success" style={{ fontWeight: "800", letterSpacing: "0.5px" }}>
+          ✓ RESOLVED
+        </span>
+      );
+    }
+    if (st === "in_remediation") {
+      return <span className="badge badge-medium">🛡️ REMEDIATING</span>;
+    }
+    if (st === "analyzed") {
+      return <span className="badge badge-violet">🧠 AI DIAGNOSED</span>;
+    }
+    if (st === "escalated") {
+      return <span className="badge badge-critical">⚠️ ESCALATED</span>;
+    }
+    return <span className="badge badge-high">⚡ OPEN</span>;
+  };
+
+  // Format evidence cleanly
+  const renderEvidenceItems = (evidence) => {
+    if (!evidence) {
+      return <div style={{ color: "var(--text-muted)", fontSize: "12px" }}>No telemetry evidence recorded.</div>;
+    }
+
+    if (!Array.isArray(evidence)) {
+      if (typeof evidence === "object") {
+        return <pre className="mono" style={{ fontSize: "12px", color: "#94a3b8" }}>{JSON.stringify(evidence, null, 2)}</pre>;
+      }
+      return <div className="mono" style={{ fontSize: "12px", color: "#94a3b8" }}>{String(evidence)}</div>;
+    }
+
+    if (evidence.length === 0) {
+      return <div style={{ color: "var(--text-muted)", fontSize: "12px" }}>No evidence events correlated.</div>;
+    }
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {evidence.map((ev, idx) => {
+          if (typeof ev === "string") {
+            return (
+              <div key={idx} className="evidence-row">
+                <span className="mono" style={{ fontSize: "12px", color: "#e2e8f0" }}>{ev}</span>
+              </div>
+            );
+          }
+
+          const src = (ev.source || "telemetry").toUpperCase();
+          const sev = (ev.severity || "info").toLowerCase();
+          const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : "";
+          const data = ev.data || {};
+          const msg = data.log || data.rule || data.metric || data.message || (typeof data === "object" ? JSON.stringify(data) : String(data));
+
+          let srcColor = "var(--cyan-400)";
+          if (src === "FALCO") srcColor = "var(--rose-400)";
+          if (src === "LOKI") srcColor = "var(--violet-400)";
+          if (src === "PROMETHEUS") srcColor = "var(--amber-400)";
+
+          return (
+            <div key={idx} className="evidence-row">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <span className="badge" style={{ background: "rgba(255,255,255,0.08)", color: srcColor, border: `1px solid ${srcColor}55` }}>
+                  {src}
+                </span>
+                {ts && <span className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>{ts}</span>}
+                {data.workload && <span className="mono" style={{ fontSize: "11px", color: "#94a3b8" }}>pod: {data.workload}</span>}
+              </div>
+              <div className="mono" style={{ fontSize: "12px", color: "#cbd5e1", lineHeight: "1.4" }}>
+                {msg}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Metrics summary
   const totalCount = incidents.length;
   const criticalCount = incidents.filter((i) => (i.severity || "").toLowerCase() === "critical").length;
-  const diagnosedCount = incidents.filter((i) => i.root_cause || i.analysis || i.ai_analysis).length;
+  const activeCount = incidents.filter((i) => (i.status || "").toLowerCase() !== "resolved" && (i.status || "").toLowerCase() !== "closed").length;
+  const resolvedCount = incidents.filter((i) => (i.status || "").toLowerCase() === "resolved" || (i.status || "").toLowerCase() === "closed").length;
+
+  // Active Incident Confidence Calculation (Fix 9600% bug)
+  const rawConf = activeIncident ? (activeIncident.confidence || activeIncident.ai_analysis?.confidence || 88) : 88;
+  const displayConf = rawConf > 1 ? Math.min(100, Math.round(rawConf)) : Math.round(rawConf * 100);
+  const isSelectedResolved = activeIncident && ((activeIncident.status || "").toLowerCase() === "resolved" || (activeIncident.status || "").toLowerCase() === "closed");
 
   return (
     <div className="incident-container">
@@ -125,20 +236,20 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
 
         <div className="glass-panel metric-card violet">
           <div className="metric-header">
-            <span>AI Diagnosed</span>
+            <span>Active Anomalies</span>
             <span>🧠</span>
           </div>
-          <div className="metric-value">{diagnosedCount}</div>
-          <div className="metric-sub">With Vector RAG Runbook Matching</div>
+          <div className="metric-value">{activeCount}</div>
+          <div className="metric-sub">Awaiting SRE / Agent Resolution</div>
         </div>
 
         <div className="glass-panel metric-card emerald">
           <div className="metric-header">
-            <span>Remediation Status</span>
-            <span>🛡️</span>
+            <span>Resolved Incidents</span>
+            <span>✓</span>
           </div>
-          <div className="metric-value">Active</div>
-          <div className="metric-sub">Circuit Breakers Armed</div>
+          <div className="metric-value">{resolvedCount}</div>
+          <div className="metric-sub">Successfully Closed & Verified</div>
         </div>
       </div>
 
@@ -155,7 +266,7 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
         </div>
       )}
 
-      {/* Action Bar */}
+      {/* Action Bar & Filter Controls */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button
@@ -176,24 +287,30 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        {/* Filters */}
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="filter-select"
+            title="Filter by resolution status"
+          >
+            <option value="all">Status: All Incidents</option>
+            <option value="active">Status: Active Only (Open/Diagnosed)</option>
+            <option value="resolved">Status: Resolved Only</option>
+          </select>
+
           <select
             value={filterSeverity}
             onChange={(e) => setFilterSeverity(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              background: "rgba(0, 0, 0, 0.4)",
-              color: "#fff",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "8px",
-              fontSize: "13px",
-            }}
+            className="filter-select"
+            title="Filter by severity"
           >
-            <option value="all">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="all">Severity: All</option>
+            <option value="critical">Severity: Critical</option>
+            <option value="high">Severity: High</option>
+            <option value="medium">Severity: Medium</option>
+            <option value="low">Severity: Low</option>
           </select>
         </div>
       </div>
@@ -210,12 +327,16 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+              <span>Showing {filtered.length} of {incidents.length}</span>
+              <span>{filterStatus !== "all" ? `Filter: ${filterStatus}` : "All"}</span>
+            </div>
           </div>
 
           <div className="incident-list">
             {filtered.length === 0 ? (
-              <div style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-                No incidents found matching criteria.
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
+                No incidents match current filters.
               </div>
             ) : (
               filtered.map((inc) => {
@@ -224,23 +345,31 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
                 const title = inc.title || inc.description || inc.root_cause || "Correlated Incident";
                 const service = inc.service || inc.workload || "cluster-workload";
                 const timestamp = inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString() : "Recent";
+                const isResolved = (inc.status || "").toLowerCase() === "resolved" || (inc.status || "").toLowerCase() === "closed";
 
                 return (
                   <div
                     key={id}
-                    className={`incident-card ${isSelected ? "active" : ""}`}
+                    className={`incident-card ${isSelected ? "active" : ""} ${isResolved ? "card-resolved" : ""}`}
                     onClick={() => setSelectedId(id)}
                   >
                     <div className="incident-header-row">
-                      {renderBadge(inc.severity)}
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        {renderSeverityBadge(inc.severity)}
+                        {renderStatusBadge(inc.status)}
+                      </div>
                       <span className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                         {timestamp}
                       </span>
                     </div>
-                    <div className="incident-title">{title}</div>
+
+                    <div className="incident-title" style={{ opacity: isResolved ? 0.8 : 1 }}>
+                      {title}
+                    </div>
+
                     <div className="incident-meta-row">
                       <span className="mono" style={{ color: "var(--cyan-400)" }}>{service}</span>
-                      <span style={{ fontSize: "11px" }}>{inc.status || "Correlated"}</span>
+                      <span className="mono" style={{ fontSize: "10px", color: "var(--text-muted)" }}>{id.slice(-8)}</span>
                     </div>
                   </div>
                 );
@@ -258,25 +387,56 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
           ) : (
             <>
               {/* Incident Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "16px", gap: "16px" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                    {renderBadge(activeIncident.severity)}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px", flexWrap: "wrap" }}>
+                    {renderSeverityBadge(activeIncident.severity)}
+                    {renderStatusBadge(activeIncident.status)}
                     <span className="mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                       ID: {activeIncident.incident_id || activeIncident.id}
                     </span>
                   </div>
-                  <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#fff" }}>
+                  <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#fff", lineHeight: "1.4" }}>
                     {activeIncident.title || activeIncident.description || "Correlated Anomaly"}
                   </h2>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Target Workload</div>
-                  <div className="mono" style={{ fontSize: "13px", fontWeight: "600", color: "var(--cyan-400)" }}>
-                    {activeIncident.service || activeIncident.workload || "backend"}
+
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Target Workload</div>
+                    <div className="mono" style={{ fontSize: "13.5px", fontWeight: "700", color: "var(--cyan-400)" }}>
+                      {activeIncident.service || activeIncident.workload || "backend"}
+                    </div>
                   </div>
+
+                  {!isSelectedResolved && (
+                    <button
+                      className="btn-success"
+                      style={{ fontSize: "11.5px", padding: "6px 12px" }}
+                      onClick={() => handleMarkResolved(activeIncident.incident_id || activeIncident.id)}
+                      disabled={actionLoading}
+                      title="Mark this incident as resolved and record in audit log"
+                    >
+                      ✓ Mark as Resolved
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Resolved Banner if applicable */}
+              {isSelectedResolved && (
+                <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.35)", borderRadius: "10px", padding: "14px 18px", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "20px" }}>✅</span>
+                  <div>
+                    <div style={{ fontSize: "13.5px", fontWeight: "700", color: "var(--emerald-400)" }}>
+                      Incident Successfully Resolved & Verified
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "2px" }}>
+                      {activeIncident.remediation_summary || "Workload self-healing loop or SRE operator verified operational recovery."}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* AI RCA Diagnosis Banner */}
               <div className="ai-rca-banner">
@@ -291,16 +451,16 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
                     "Telemetry pattern indicates elevated resource contention or abnormal exit codes. AI RCA has synthesized correlated logs and Prometheus alert metrics."}
                 </p>
 
-                {/* Confidence Bar */}
+                {/* Confidence Bar (Fixed 9600% bug -> now displays clean 96%) */}
                 <div className="confidence-bar-wrap">
-                  <span style={{ fontSize: "12px", fontWeight: "600", color: "#c4b5fd" }}>
-                    Confidence: {Math.round((activeIncident.confidence || activeIncident.ai_analysis?.confidence || 0.88) * 100)}%
+                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#c4b5fd" }}>
+                    Confidence: {displayConf}%
                   </span>
                   <div className="confidence-track">
                     <div
                       className="confidence-fill"
                       style={{
-                        width: `${Math.round((activeIncident.confidence || activeIncident.ai_analysis?.confidence || 0.88) * 100)}%`,
+                        width: `${displayConf}%`,
                       }}
                     />
                   </div>
@@ -315,7 +475,7 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
                       📖 Matched Knowledge Base Runbook (Qdrant Vector RAG)
                     </span>
                     <span className="mono" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                      Score: {activeIncident.rag_match?.score || "0.94"}
+                      Score: {activeIncident.rag_match?.score ? Math.round(activeIncident.rag_match.score * 100) + "%" : "94%"}
                     </span>
                   </div>
                   <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.5" }}>
@@ -324,30 +484,13 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
                 </div>
               )}
 
-              {/* Multi-Source Correlated Evidence */}
+              {/* Multi-Source Correlated Evidence (Fixed [object Object] bug) */}
               <div>
                 <h3 style={{ fontSize: "13.5px", fontWeight: "700", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px" }}>
                   Multi-Source Evidence & Telemetry Logs
                 </h3>
-                <div
-                  className="mono"
-                  style={{
-                    background: "#05070d",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "8px",
-                    padding: "14px",
-                    fontSize: "12px",
-                    color: "#94a3b8",
-                    maxHeight: "160px",
-                    overflowY: "auto",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {Array.isArray(activeIncident.evidence)
-                    ? activeIncident.evidence.join("\n")
-                    : activeIncident.logs ||
-                      activeIncident.telemetry_snippet ||
-                      JSON.stringify(activeIncident.correlated_events || activeIncident.events || { alert: "HighLatencyWarning", count: 4, cluster: "k8s-master" }, null, 2)}
+                <div className="evidence-panel">
+                  {renderEvidenceItems(activeIncident.evidence || activeIncident.correlated_events || activeIncident.events)}
                 </div>
               </div>
 
@@ -367,19 +510,19 @@ export default function IncidentConsole({ incidents = [], onReload, isBusy = fal
                       requires_approval: true,
                     },
                   ]).map((act, idx) => {
-                    const isExecuted = act.status === "completed" || act.executed;
+                    const isExecuted = act.status === "completed" || act.executed || isSelectedResolved;
                     const requiresApproval = act.requires_approval !== false;
 
                     return (
                       <div key={idx} className="action-box">
                         <div className="action-info">
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                             <span className="action-name">{act.name || act.action_type || `Action #${idx + 1}`}</span>
                             {requiresApproval && !isExecuted && (
                               <span className="badge badge-high" style={{ fontSize: "10px" }}>Requires Human SRE Approval</span>
                             )}
                             {isExecuted && (
-                              <span className="badge badge-success" style={{ fontSize: "10px" }}>Executed</span>
+                              <span className="badge badge-success" style={{ fontSize: "10px" }}>✓ Resolved</span>
                             )}
                           </div>
                           <div className="action-desc">{act.description || `Target: ${act.target || "cluster-workload"}`}</div>

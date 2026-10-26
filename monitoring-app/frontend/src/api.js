@@ -31,13 +31,21 @@ async function request(endpoint, options = {}) {
 // Incidents & AI RCA
 // ------------------------------------------------------------------------------
 
-export async function getAnalyzedIncidents(limit = 50) {
-  return request(`/incidents/analyzed?limit=${limit}`);
+export async function getAnalyzedIncidents(status = "", limit = 50) {
+  const query = status ? `?status=${encodeURIComponent(status)}&limit=${limit}` : `?limit=${limit}`;
+  return request(`/incidents/analyzed${query}`);
 }
 
 export async function getRawIncidents(status = "", limit = 50) {
   const query = status ? `?status=${encodeURIComponent(status)}&limit=${limit}` : `?limit=${limit}`;
   return request(`/incidents${query}`);
+}
+
+export async function resolveIncident(incidentId, reason = "Resolved by SRE Operator") {
+  return request(`/incidents/${encodeURIComponent(incidentId)}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ reason, resolver: "sre_console" }),
+  });
 }
 
 export async function triggerAnalysis() {
@@ -97,4 +105,22 @@ export async function triggerSimulation(type, params = {}) {
   const queryString = new URLSearchParams(params).toString();
   const endpoint = `/simulate/${encodeURIComponent(type)}${queryString ? `?${queryString}` : ""}`;
   return request(endpoint, { method: "POST" });
+}
+
+export async function simulateAuditEntry(action = "rollout_restart", target = "backend") {
+  return request("/audit/simulate", {
+    method: "POST",
+    body: JSON.stringify({ action, target }),
+  });
+}
+
+// ------------------------------------------------------------------------------
+// SRE AI Copilot Chatbot
+// ------------------------------------------------------------------------------
+
+export async function sendChatMessage(message, history = []) {
+  return request("/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
+  });
 }
